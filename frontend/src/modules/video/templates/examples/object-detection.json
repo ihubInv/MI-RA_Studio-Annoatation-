@@ -1,0 +1,21 @@
+{
+  "template": {
+    "name": "Object Detection",
+    "version": "1.0",
+    "description": "Example: boxes for people, vehicles, animals, and generic objects.",
+    "status": "draft"
+  },
+  "tools": {
+    "bounding_box": { "enabled": true, "visible": true, "required": true, "hotkey": "B" }
+  },
+  "labels": [
+    { "id": "person", "name": "Person", "color": "#fc6900", "type": "object", "allowed_tools": ["bounding_box"] },
+    { "id": "vehicle", "name": "Vehicle", "color": "#0d559e", "type": "object", "allowed_tools": ["bounding_box"] },
+    { "id": "animal", "name": "Animal", "color": "#22c55e", "type": "object", "allowed_tools": ["bounding_box"] },
+    { "id": "object", "name": "Object", "color": "#64748b", "type": "object", "allowed_tools": ["bounding_box"] }
+  ],
+  "timeline": { "object_tracks": true },
+  "ai": { "enabled": true, "detect": true, "track": false, "segment": false, "pose": false },
+  "validation": { "require_label": true, "min_objects": 1, "required_tools": ["bounding_box"] },
+  "export": { "formats": ["json", "yolo", "coco"], "default_format": "yolo" }
+}

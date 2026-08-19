@@ -1,0 +1,53 @@
+{
+  "template": {
+    "name": "Surveillance",
+    "version": "1.0",
+    "description": "Example: people, bags, and vehicles with intrusion-style events. Example only — it does not replace Standard Video Annotation.",
+    "status": "draft"
+  },
+  "tools": {
+    "bounding_box": { "enabled": true, "visible": true, "required": true, "hotkey": "B" },
+    "polygon": { "enabled": true, "visible": true, "hotkey": "N" },
+    "tracking": { "enabled": true, "visible": true },
+    "event": { "enabled": true, "visible": true },
+    "relationship": { "enabled": true, "visible": true },
+    "trajectory": { "enabled": true, "visible": true },
+    "action": { "enabled": false, "visible": false }
+  },
+  "labels": [
+    { "id": "person", "name": "Person", "color": "#fc6900", "type": "object", "allowed_tools": ["bounding_box"], "attributes": ["occluded"] },
+    { "id": "vehicle", "name": "Vehicle", "color": "#0d559e", "type": "object", "allowed_tools": ["bounding_box"], "attributes": ["occluded"] },
+    { "id": "bag", "name": "Bag", "color": "#f59e0b", "type": "object", "allowed_tools": ["bounding_box"] },
+    { "id": "zone", "name": "Restricted zone", "color": "#ef4444", "type": "object", "allowed_tools": ["polygon"] }
+  ],
+  "attributes": [
+    { "id": "occluded", "name": "Occluded", "type": "boolean", "default": false }
+  ],
+  "events": [
+    { "id": "intrusion", "name": "Intrusion", "color": "#ef4444", "type": "temporal", "description": "Person enters a restricted zone" },
+    { "id": "loitering", "name": "Loitering", "color": "#f97316", "type": "temporal" },
+    { "id": "unattended_bag", "name": "Unattended bag", "color": "#eab308", "type": "both" }
+  ],
+  "relations": [
+    { "id": "carrying", "name": "Carrying", "color": "#14b8a6", "source_label": "person", "target_label": "bag", "directional": true },
+    { "id": "entering", "name": "Entering", "color": "#a855f7", "source_label": "person", "target_label": "zone", "directional": true }
+  ],
+  "timeline": {
+    "object_tracks": true,
+    "event_tracks": true,
+    "trajectory_tracks": true,
+    "action_tracks": false,
+    "audio_track": false
+  },
+  "ai": { "enabled": true, "detect": true, "track": true, "segment": false, "pose": false, "smart_analysis": true },
+  "validation": { "require_label": true, "min_objects": 1, "required_tools": ["bounding_box"] },
+  "ui": {
+    "left_toolbar": { "visible": true },
+    "right_panel": { "visible": true },
+    "timeline": { "visible": true },
+    "label_panel": { "visible": true },
+    "object_panel": { "visible": true },
+    "properties_panel": { "visible": true }
+  },
+  "export": { "formats": ["json", "mot", "cvat"], "default_format": "json" }
+}

@@ -1,0 +1,21 @@
+{
+  "template": {
+    "name": "Instance Segmentation",
+    "version": "1.0",
+    "description": "Example: per-instance masks for people and vehicles.",
+    "status": "draft"
+  },
+  "tools": {
+    "bounding_box": { "enabled": true, "visible": true, "hotkey": "B" },
+    "polygon": { "enabled": true, "visible": true, "hotkey": "N" },
+    "mask": { "enabled": true, "visible": true, "hotkey": "G" },
+    "tracking": { "enabled": true, "visible": true }
+  },
+  "labels": [
+    { "id": "person", "name": "Person", "color": "#fc6900", "type": "object", "allowed_tools": ["bounding_box", "polygon", "mask"] },
+    { "id": "vehicle", "name": "Vehicle", "color": "#0d559e", "type": "object", "allowed_tools": ["bounding_box", "polygon", "mask"] }
+  ],
+  "timeline": { "object_tracks": true, "segmentation_tracks": true },
+  "ai": { "enabled": true, "detect": true, "segment": true },
+  "export": { "formats": ["json", "coco"], "default_format": "coco" }
+}

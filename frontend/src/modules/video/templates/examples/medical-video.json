@@ -1,0 +1,23 @@
+{
+  "template": {
+    "name": "Medical Video",
+    "version": "1.0",
+    "description": "Example: anatomical regions, instruments, and procedure phases.",
+    "status": "draft"
+  },
+  "tools": {
+    "polygon": { "enabled": true, "visible": true, "hotkey": "N" },
+    "bounding_box": { "enabled": true, "visible": true, "hotkey": "B" },
+    "event": { "enabled": true, "visible": true }
+  },
+  "labels": [
+    { "id": "anatomy", "name": "Anatomy", "color": "#ef4444", "type": "object", "allowed_tools": ["polygon"] },
+    { "id": "instrument", "name": "Instrument", "color": "#0d559e", "type": "object", "allowed_tools": ["bounding_box"] }
+  ],
+  "events": [
+    { "id": "phase", "name": "Procedure phase", "color": "#22c55e", "type": "temporal" }
+  ],
+  "timeline": { "object_tracks": true, "event_tracks": true, "scene_tracks": true },
+  "ai": { "enabled": false },
+  "export": { "formats": ["json", "coco"], "default_format": "json" }
+}

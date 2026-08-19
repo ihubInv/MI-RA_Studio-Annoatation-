@@ -1,0 +1,21 @@
+{
+  "template": {
+    "name": "Semantic Segmentation",
+    "version": "1.0",
+    "description": "Example: class regions with polygons, brushes, and masks.",
+    "status": "draft"
+  },
+  "tools": {
+    "polygon": { "enabled": true, "visible": true, "hotkey": "N" },
+    "brush": { "enabled": true, "visible": true, "hotkey": "M" },
+    "mask": { "enabled": true, "visible": true, "hotkey": "G" }
+  },
+  "labels": [
+    { "id": "road", "name": "Road", "color": "#64748b", "type": "object", "allowed_tools": ["polygon", "brush", "mask"] },
+    { "id": "building", "name": "Building", "color": "#0d559e", "type": "object", "allowed_tools": ["polygon", "mask"] },
+    { "id": "vegetation", "name": "Vegetation", "color": "#22c55e", "type": "object", "allowed_tools": ["brush", "mask"] }
+  ],
+  "timeline": { "object_tracks": true, "segmentation_tracks": true },
+  "ai": { "enabled": true, "segment": true, "detect": false },
+  "export": { "formats": ["json", "coco"], "default_format": "json" }
+}

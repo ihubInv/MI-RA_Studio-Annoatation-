@@ -4,13 +4,14 @@ interface ModalProps {
   onClose: () => void
   children: React.ReactNode
   wide?: boolean
+  xl?: boolean
 }
 
-export function Modal({ title, subtitle, onClose, children, wide }: ModalProps) {
+export function Modal({ title, subtitle, onClose, children, wide, xl }: ModalProps) {
   return (
     <div className="mira-modal-backdrop" onClick={onClose}>
       <div
-        className={wide ? 'mira-modal mira-modal-wide fade-enter' : 'mira-modal fade-enter'}
+        className={wide || xl ? 'mira-modal mira-modal-wide fade-enter' : 'mira-modal fade-enter'}
         onClick={(e) => e.stopPropagation()}
         role="dialog"
         aria-modal="true"

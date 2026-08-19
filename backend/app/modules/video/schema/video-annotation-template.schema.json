@@ -1,0 +1,293 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://mira.studio/schemas/video-annotation-template.json",
+  "title": "MI-RA Studio Custom Video Annotation Template",
+  "description": "Owner-authored JSON that configures the existing video annotation engine. Classic /annotate/video/:itemId does not use this document.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["template"],
+  "properties": {
+    "template": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["name", "version"],
+      "properties": {
+        "name": { "type": "string", "minLength": 1, "maxLength": 255 },
+        "version": { "type": "string", "minLength": 1, "maxLength": 32 },
+        "description": { "type": "string" },
+        "status": { "type": "string", "enum": ["draft", "active", "archived"] }
+      }
+    },
+    "tools": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "bounding_box": { "$ref": "#/$defs/toolConfig" },
+        "rotated_box": { "$ref": "#/$defs/toolConfig" },
+        "polygon": { "$ref": "#/$defs/toolConfig" },
+        "polyline": { "$ref": "#/$defs/toolConfig" },
+        "point": { "$ref": "#/$defs/toolConfig" },
+        "ellipse": { "$ref": "#/$defs/toolConfig" },
+        "keypoint": { "$ref": "#/$defs/toolConfig" },
+        "skeleton": { "$ref": "#/$defs/toolConfig" },
+        "brush": { "$ref": "#/$defs/toolConfig" },
+        "mask": { "$ref": "#/$defs/toolConfig" },
+        "cuboid": { "$ref": "#/$defs/toolConfig" },
+        "tracking": { "$ref": "#/$defs/toolConfig" },
+        "event": { "$ref": "#/$defs/toolConfig" },
+        "action": { "$ref": "#/$defs/toolConfig" },
+        "relationship": { "$ref": "#/$defs/toolConfig" },
+        "trajectory": { "$ref": "#/$defs/toolConfig" }
+      }
+    },
+    "labels": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/label" }
+    },
+    "attributes": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/attribute" }
+    },
+    "timeline": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "object_tracks": { "type": "boolean" },
+        "event_tracks": { "type": "boolean" },
+        "action_tracks": { "type": "boolean" },
+        "audio_track": { "type": "boolean" },
+        "scene_tracks": { "type": "boolean" },
+        "trajectory_tracks": { "type": "boolean" }
+      }
+    },
+    "ai": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "enabled": { "type": "boolean" },
+        "detect": { "type": "boolean" },
+        "segment": { "type": "boolean" },
+        "pose": { "type": "boolean" },
+        "track": { "type": "boolean" },
+        "smart_analysis": { "type": "boolean" }
+      }
+    },
+    "validation": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "required_fields": {
+          "type": "array",
+          "items": { "type": "string", "minLength": 1 }
+        },
+        "required_tools": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/toolId" }
+        },
+        "require_label": { "type": "boolean" },
+        "min_objects": { "type": "integer", "minimum": 0 },
+        "max_objects": { "type": "integer", "minimum": 0 },
+        "rules": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/validationRule" }
+        }
+      }
+    },
+    "ui": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "left_toolbar": { "$ref": "#/$defs/uiPanel" },
+        "right_panel": { "$ref": "#/$defs/uiPanel" },
+        "timeline": { "$ref": "#/$defs/uiPanel" },
+        "label_panel": { "$ref": "#/$defs/uiPanel" },
+        "object_panel": { "$ref": "#/$defs/uiPanel" },
+        "properties_panel": { "$ref": "#/$defs/uiPanel" }
+      }
+    },
+    "export": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "formats": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/exportFormat" }
+        },
+        "default_format": { "$ref": "#/$defs/exportFormat" },
+        "class_map": {
+          "type": "object",
+          "additionalProperties": { "type": "string" }
+        },
+        "mappings": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/exportMapping" }
+        }
+      }
+    }
+  },
+  "$defs": {
+    "toolId": {
+      "type": "string",
+      "enum": [
+        "bounding_box",
+        "rotated_box",
+        "polygon",
+        "polyline",
+        "point",
+        "ellipse",
+        "keypoint",
+        "skeleton",
+        "brush",
+        "mask",
+        "cuboid",
+        "tracking",
+        "event",
+        "action",
+        "relationship",
+        "trajectory"
+      ]
+    },
+    "toolConfig": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["enabled"],
+      "properties": {
+        "tool": { "$ref": "#/$defs/toolId" },
+        "enabled": { "type": "boolean" },
+        "visible": { "type": "boolean" },
+        "required": { "type": "boolean" },
+        "display_name": { "type": "string", "maxLength": 80 },
+        "icon": { "type": "string", "maxLength": 40 },
+        "hotkey": { "type": "string", "maxLength": 8 },
+        "allowed_labels": {
+          "type": "array",
+          "items": { "type": "string", "minLength": 1 }
+        },
+        "default_properties": { "$ref": "#/$defs/toolDefaultProperties" },
+        "interpolation": { "type": "boolean" },
+        "min_points": { "type": "integer", "minimum": 1 },
+        "max_points": { "type": "integer", "minimum": 1 },
+        "options": { "type": "object" }
+      }
+    },
+    "toolDefaultProperties": {
+      "type": "object",
+      "properties": {
+        "interpolation": { "type": "boolean" },
+        "occluded": { "type": "boolean" },
+        "locked": { "type": "boolean" },
+        "visible": { "type": "boolean" },
+        "color": { "type": "string" },
+        "min_points": { "type": "integer", "minimum": 1 },
+        "max_points": { "type": "integer", "minimum": 1 }
+      }
+    },
+    "label": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "name", "color"],
+      "properties": {
+        "id": { "type": "string", "minLength": 1 },
+        "name": { "type": "string", "minLength": 1 },
+        "color": { "type": "string", "pattern": "^#([0-9a-fA-F]{3}|[0-9a-fA-F]{6})$" },
+        "type": {
+          "type": "string",
+          "enum": ["object", "event", "action", "relation", "scene", "audio"]
+        },
+        "description": { "type": "string" },
+        "allowed_tools": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/toolId" }
+        },
+        "attributes": {
+          "type": "array",
+          "items": { "type": "string", "minLength": 1 }
+        }
+      }
+    },
+    "attribute": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "name", "type"],
+      "properties": {
+        "id": { "type": "string", "minLength": 1 },
+        "name": { "type": "string", "minLength": 1 },
+        "type": {
+          "type": "string",
+          "enum": ["boolean", "number", "text", "select", "multiselect"]
+        },
+        "options": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "required": { "type": "boolean" },
+        "default": {
+          "type": ["boolean", "number", "string", "array", "null"],
+          "items": { "type": "string" }
+        },
+        "applicable_to": {
+          "type": "array",
+          "items": { "type": "string", "minLength": 1 }
+        }
+      }
+    },
+    "uiPanel": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "visible": { "type": "boolean" },
+        "collapsed": { "type": "boolean" }
+      }
+    },
+    "validationRule": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["type"],
+      "properties": {
+        "id": { "type": "string" },
+        "type": {
+          "type": "string",
+          "enum": ["required_field", "required_tool", "min_objects", "require_label", "max_objects"]
+        },
+        "field": { "type": "string" },
+        "tool": { "$ref": "#/$defs/toolId" },
+        "min": { "type": "number" },
+        "max": { "type": "number" },
+        "message": { "type": "string" }
+      }
+    },
+    "exportFormat": {
+      "type": "string",
+      "enum": [
+        "json",
+        "csv",
+        "yolo",
+        "coco",
+        "mot",
+        "cvat",
+        "srt",
+        "vtt",
+        "keypoints",
+        "kitti",
+        "label_studio",
+        "nuscenes",
+        "waymo",
+        "package",
+        "annotated_video"
+      ]
+    },
+    "exportMapping": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["format"],
+      "properties": {
+        "format": { "$ref": "#/$defs/exportFormat" },
+        "class_map": {
+          "type": "object",
+          "additionalProperties": { "type": "string" }
+        },
+        "include_interpolated": { "type": "boolean" }
+      }
+    }
+  }
+}

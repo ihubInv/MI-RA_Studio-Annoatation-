@@ -1,0 +1,38 @@
+{
+  "template": {
+    "name": "Custom Multimodal",
+    "version": "1.0",
+    "description": "Example: objects, pose, masks, events, actions, relations, and audio together.",
+    "status": "draft"
+  },
+  "tools": {
+    "bounding_box": { "enabled": true, "visible": true, "hotkey": "B" },
+    "polygon": { "enabled": true, "visible": true, "hotkey": "N" },
+    "mask": { "enabled": true, "visible": true },
+    "skeleton": { "enabled": true, "visible": true },
+    "event": { "enabled": true, "visible": true },
+    "action": { "enabled": true, "visible": true },
+    "relationship": { "enabled": true, "visible": true },
+    "trajectory": { "enabled": true, "visible": true }
+  },
+  "labels": [
+    { "id": "person", "name": "Person", "color": "#fc6900", "type": "object", "allowed_tools": ["bounding_box", "skeleton", "mask"] },
+    { "id": "object", "name": "Object", "color": "#0d559e", "type": "object", "allowed_tools": ["bounding_box", "polygon"] }
+  ],
+  "events": [{ "id": "scene_change", "name": "Scene change", "color": "#eab308", "type": "instant" }],
+  "actions": [{ "id": "interact", "name": "Interact", "color": "#22c55e", "type": "temporal" }],
+  "relations": [
+    { "id": "using", "name": "Using", "color": "#a855f7", "source_label": "person", "target_label": "object", "directional": true }
+  ],
+  "timeline": {
+    "object_tracks": true,
+    "event_tracks": true,
+    "action_tracks": true,
+    "audio_track": true,
+    "trajectory_tracks": true,
+    "pose_tracks": true,
+    "segmentation_tracks": true
+  },
+  "ai": { "enabled": true, "detect": true, "segment": true, "pose": true, "track": true, "smart_analysis": true },
+  "export": { "formats": ["json", "package", "annotated_video"], "default_format": "json" }
+}

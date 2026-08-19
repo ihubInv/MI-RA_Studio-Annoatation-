@@ -1,0 +1,21 @@
+{
+  "template": {
+    "name": "Vehicle Tracking",
+    "version": "1.0",
+    "description": "Example: vehicle identities with interpolation, trajectories, and MOT export.",
+    "status": "draft"
+  },
+  "tools": {
+    "bounding_box": { "enabled": true, "visible": true, "required": true, "hotkey": "B", "interpolation": true },
+    "tracking": { "enabled": true, "visible": true },
+    "trajectory": { "enabled": true, "visible": true }
+  },
+  "labels": [
+    { "id": "car", "name": "Car", "color": "#0d559e", "type": "object", "allowed_tools": ["bounding_box"] },
+    { "id": "truck", "name": "Truck", "color": "#7c3aed", "type": "object", "allowed_tools": ["bounding_box"] },
+    { "id": "bus", "name": "Bus", "color": "#ea580c", "type": "object", "allowed_tools": ["bounding_box"] }
+  ],
+  "timeline": { "object_tracks": true, "trajectory_tracks": true },
+  "ai": { "enabled": true, "detect": true, "track": true },
+  "export": { "formats": ["json", "mot", "kitti"], "default_format": "mot" }
+}

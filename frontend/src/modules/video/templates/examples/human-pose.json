@@ -1,0 +1,19 @@
+{
+  "template": {
+    "name": "Human Pose",
+    "version": "1.0",
+    "description": "Example: person boxes and skeleton keypoints.",
+    "status": "draft"
+  },
+  "tools": {
+    "bounding_box": { "enabled": true, "visible": true, "hotkey": "B" },
+    "skeleton": { "enabled": true, "visible": true, "hotkey": "P" },
+    "keypoint": { "enabled": true, "visible": true }
+  },
+  "labels": [
+    { "id": "person", "name": "Person", "color": "#fc6900", "type": "object", "allowed_tools": ["bounding_box", "skeleton"] }
+  ],
+  "timeline": { "object_tracks": true, "pose_tracks": true },
+  "ai": { "enabled": true, "detect": true, "pose": true },
+  "export": { "formats": ["json", "keypoints", "coco"], "default_format": "keypoints" }
+}

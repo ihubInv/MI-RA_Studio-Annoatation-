@@ -1,0 +1,24 @@
+{
+  "template": {
+    "name": "Human Activity",
+    "version": "1.0",
+    "description": "Example: people plus walk / run / sit temporal actions.",
+    "status": "draft"
+  },
+  "tools": {
+    "bounding_box": { "enabled": true, "visible": true, "hotkey": "B" },
+    "action": { "enabled": true, "visible": true },
+    "tracking": { "enabled": true, "visible": true }
+  },
+  "labels": [
+    { "id": "person", "name": "Person", "color": "#fc6900", "type": "object", "allowed_tools": ["bounding_box"] }
+  ],
+  "actions": [
+    { "id": "walk", "name": "Walk", "color": "#22c55e", "type": "temporal" },
+    { "id": "run", "name": "Run", "color": "#ef4444", "type": "temporal" },
+    { "id": "sit", "name": "Sit", "color": "#0d559e", "type": "temporal" }
+  ],
+  "timeline": { "object_tracks": true, "action_tracks": true },
+  "ai": { "enabled": true, "detect": true, "track": true },
+  "export": { "formats": ["json", "srt"], "default_format": "json" }
+}

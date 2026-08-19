@@ -1,0 +1,25 @@
+{
+  "template": {
+    "name": "Traffic Analysis",
+    "version": "1.0",
+    "description": "Example: roadside vehicles, lanes, and traffic events.",
+    "status": "draft"
+  },
+  "tools": {
+    "bounding_box": { "enabled": true, "visible": true, "hotkey": "B" },
+    "polyline": { "enabled": true, "visible": true, "hotkey": "L" },
+    "event": { "enabled": true, "visible": true },
+    "tracking": { "enabled": true, "visible": true }
+  },
+  "labels": [
+    { "id": "vehicle", "name": "Vehicle", "color": "#0d559e", "type": "object", "allowed_tools": ["bounding_box"] },
+    { "id": "lane", "name": "Lane", "color": "#eab308", "type": "object", "allowed_tools": ["polyline"] }
+  ],
+  "events": [
+    { "id": "stop", "name": "Stop", "color": "#ef4444", "type": "instant" },
+    { "id": "lane_change", "name": "Lane change", "color": "#f97316", "type": "temporal" }
+  ],
+  "timeline": { "object_tracks": true, "event_tracks": true },
+  "ai": { "enabled": true, "detect": true, "track": true },
+  "export": { "formats": ["json", "mot", "kitti"], "default_format": "json" }
+}
