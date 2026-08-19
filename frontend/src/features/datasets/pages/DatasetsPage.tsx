@@ -1,7 +1,10 @@
 import { useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { Filter, Plus, Search, Trash2, Upload } from 'lucide-react'
+import { Box, Cloud, Combine, Database, FileAudio, Film, Filter, FolderOpen, HardDrive, Image, Layers, Plus, Search, Server, Trash2, Type, Upload } from 'lucide-react'
+import { Field } from '@/components/ui/Field'
+import { Modal } from '@/components/ui/Modal'
+import { Select } from '@/components/ui/Select'
 import { datasetsService } from '@/services/datasets.service'
 import { projectsService } from '@/services/projects.service'
 import { EmptyState } from '@/components/ui/EmptyState'
@@ -112,13 +115,13 @@ export function DatasetsPage() {
       </div>
 
       {isLoading ? (
-        <div className="bg-white border border-border rounded-md divide-y">
+        <div className="mira-panel rounded-md divide-y">
           {[1, 2, 3].map((i) => (
             <div key={i} className="h-12 animate-pulse bg-muted/30" />
           ))}
         </div>
       ) : datasets.length === 0 ? (
-        <div className="bg-white border border-border rounded-md">
+        <div className="mira-panel rounded-md">
           <EmptyState
             title="No datasets yet"
             description="Create a dataset to store images, video, audio, LiDAR, or multimodal data."
@@ -126,7 +129,7 @@ export function DatasetsPage() {
           />
         </div>
       ) : (
-        <div className="bg-white border border-border rounded-md overflow-hidden">
+        <div className="mira-panel rounded-md overflow-hidden">
           <table className="w-full text-sm">
             <thead>
               <tr className="border-b border-border bg-muted/30">
@@ -205,70 +208,69 @@ export function DatasetsPage() {
       )}
 
       {showCreateModal && (
-        <div className="fixed inset-0 bg-black/20 backdrop-blur-[1px] z-50 flex items-center justify-center p-4">
-          <div className="bg-white border border-border rounded-md max-w-md w-full p-5 shadow-lg space-y-4 fade-enter">
-            <h2 className="text-base font-semibold">Create Dataset</h2>
-            <form onSubmit={handleCreate} className="space-y-3">
+        <Modal
+          title="Create Dataset"
+          subtitle="Add a dataset to start annotating."
+          onClose={() => setShowCreateModal(false)}
+        >
+            <form onSubmit={handleCreate} className="space-y-3.5">
               {!routeProjectId && (
-                <div>
-                  <label className="text-xs font-medium block mb-1">Project</label>
-                  <select
-                    required
+                <Field label="Project">
+                  <Select
                     value={projectId}
-                    onChange={(e) => setProjectId(e.target.value)}
-                    className="mira-input"
-                  >
-                    <option value="">Select a project</option>
-                    {(projectsData?.items ?? []).map((p) => (
-                      <option key={p.id} value={p.id}>
-                        {p.name}
-                      </option>
-                    ))}
-                  </select>
-                </div>
+                    onChange={setProjectId}
+                    placeholder="Select a project"
+                    options={(projectsData?.items ?? []).map((p) => ({
+                      value: p.id,
+                      label: p.name,
+                      icon: FolderOpen,
+                    }))}
+                  />
+                </Field>
               )}
-              <div>
-                <label className="text-xs font-medium block mb-1">Dataset Name</label>
+              <Field label="Dataset Name" icon={Database}>
                 <input
                   type="text"
                   required
                   value={name}
                   onChange={(e) => setName(e.target.value)}
+                  placeholder="e.g. Street cameras"
                   className="mira-input"
                 />
-              </div>
-              <div>
-                <label className="text-xs font-medium block mb-1">Modality</label>
-                <select
+              </Field>
+              <Field label="Modality">
+                <Select
                   value={modality}
-                  onChange={(e) => setModality(e.target.value as DatasetModality)}
-                  className="mira-input capitalize"
-                >
-                  {['image', 'video', 'audio', 'text', 'lidar', 'point_cloud', 'depth', 'multimodal'].map((m) => (
-                    <option key={m} value={m}>
-                      {m.replace('_', ' ')}
-                    </option>
-                  ))}
-                </select>
-              </div>
+                  onChange={(v) => setModality(v as DatasetModality)}
+                  options={[
+                    { value: 'image', label: 'Image', icon: Image },
+                    { value: 'video', label: 'Video', icon: Film },
+                    { value: 'audio', label: 'Audio', icon: FileAudio },
+                    { value: 'text', label: 'Text', icon: Type },
+                    { value: 'lidar', label: 'LiDAR', icon: Box },
+                    { value: 'point_cloud', label: 'Point cloud', icon: Layers },
+                    { value: 'depth', label: 'Depth', icon: Layers },
+                    { value: 'multimodal', label: 'Multimodal', icon: Combine },
+                  ]}
+                />
+              </Field>
               <div>
-                <label className="text-xs font-medium block mb-1">Storage</label>
-                <div className="grid grid-cols-3 gap-1">
+                <label className="text-xs font-medium block mb-1.5">Storage</label>
+                <div className="grid grid-cols-3 gap-2">
                   {(
                     [
-                      { id: 'local', label: 'Local', hint: 'Files stay on this computer' },
-                      { id: 'cloud', label: 'Cloud', hint: 'S3 / MinIO / GCS / Azure' },
-                      { id: 'server', label: 'Server', hint: 'Stored on MI-RA Studio' },
+                      { id: 'local', label: 'Local', hint: 'Stay on this computer', icon: HardDrive },
+                      { id: 'cloud', label: 'Cloud', hint: 'S3 / MinIO / GCS', icon: Cloud },
+                      { id: 'server', label: 'Server', hint: 'Stored on MI-RA', icon: Server },
                     ] as const
                   ).map((opt) => (
                     <button
                       key={opt.id}
                       type="button"
                       onClick={() => setStorageMode(opt.id)}
-                      className={`text-left border rounded-md px-2 py-1.5 ${
-                        storageMode === opt.id ? 'border-primary bg-primary/5' : 'border-border'
-                      }`}
+                      className={`mira-choice ${storageMode === opt.id ? 'mira-choice-active' : ''}`}
                     >
+                      <opt.icon className="w-4 h-4 text-primary mb-1" />
                       <p className="text-xs font-semibold">{opt.label}</p>
                       <p className="text-2xs text-muted-foreground leading-tight">{opt.hint}</p>
                     </button>
@@ -276,8 +278,7 @@ export function DatasetsPage() {
                 </div>
               </div>
               {storageMode === 'cloud' && (
-                <div>
-                  <label className="text-xs font-medium block mb-1">Cloud URI</label>
+                <Field label="Cloud URI" icon={Cloud}>
                   <input
                     type="text"
                     value={cloudUri}
@@ -285,34 +286,35 @@ export function DatasetsPage() {
                     placeholder="s3://bucket/prefix"
                     className="mira-input"
                   />
-                </div>
+                </Field>
               )}
               <div>
-                <label className="text-xs font-medium block mb-1">Description</label>
+                <label className="text-xs font-medium block mb-1.5">Description</label>
                 <textarea
                   rows={2}
                   value={description}
                   onChange={(e) => setDescription(e.target.value)}
-                  className="w-full px-2.5 py-2 text-sm border border-border rounded-md focus:outline-none focus:ring-2 focus:ring-primary/20"
+                  placeholder="Optional notes…"
+                  className="mira-textarea"
                 />
               </div>
-              <div className="flex justify-end gap-2">
+              <div className="flex justify-end gap-2 pt-1">
                 <button type="button" onClick={() => setShowCreateModal(false)} className="mira-btn-ghost">
                   Cancel
                 </button>
-                <button type="submit" disabled={createMutation.isPending} className="mira-btn-primary">
+                <button type="submit" disabled={createMutation.isPending} className="mira-btn-primary h-9 px-4">
                   {createMutation.isPending ? 'Creating…' : 'Create Dataset'}
                 </button>
               </div>
             </form>
-          </div>
-        </div>
+        </Modal>
       )}
 
       {showUploadModal && selectedDatasetId && (
         <DatasetUploadModal
           datasetId={selectedDatasetId}
           storageMode={datasets.find((d: Dataset) => d.id === selectedDatasetId)?.storage_mode || 'server'}
+          modality={datasets.find((d: Dataset) => d.id === selectedDatasetId)?.modality || 'image'}
           onClose={() => setShowUploadModal(false)}
           onDone={() => {
             queryClient.invalidateQueries({ queryKey: ['datasets'] })

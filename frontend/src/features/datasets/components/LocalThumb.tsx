@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
-import { Image as ImageIcon } from 'lucide-react'
+import { Film, Image as ImageIcon } from 'lucide-react'
 import { getOrCreateThumb } from '@/features/datasets/local/registry'
+import { isVideoPath } from '@/modules/video/constants'
 
 export function LocalThumb({
   datasetId,
@@ -14,6 +15,7 @@ export function LocalThumb({
   alt: string
 }) {
   const [src, setSrc] = useState<string | null>(fallback || null)
+  const video = isVideoPath(relativePath)
 
   useEffect(() => {
     let alive = true
@@ -37,9 +39,18 @@ export function LocalThumb({
   if (!src) {
     return (
       <div className="w-full h-full flex items-center justify-center text-muted-foreground">
-        <ImageIcon className="w-8 h-8" />
+        {video ? <Film className="w-8 h-8" /> : <ImageIcon className="w-8 h-8" />}
       </div>
     )
   }
-  return <img src={src} alt={alt} className="w-full h-full object-contain" loading="lazy" />
+  return (
+    <div className="relative w-full h-full">
+      <img src={src} alt={alt} className="w-full h-full object-contain" loading="lazy" />
+      {video && (
+        <span className="absolute bottom-1 right-1 rounded bg-black/60 p-0.5 text-white">
+          <Film className="w-3.5 h-3.5" />
+        </span>
+      )}
+    </div>
+  )
 }

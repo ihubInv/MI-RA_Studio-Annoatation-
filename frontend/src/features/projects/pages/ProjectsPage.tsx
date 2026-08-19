@@ -1,7 +1,9 @@
 import { useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { Link } from 'react-router-dom'
-import { Plus, Search, Trash2 } from 'lucide-react'
+import { FolderKanban, Plus, Search, Trash2 } from 'lucide-react'
+import { Field } from '@/components/ui/Field'
+import { Modal } from '@/components/ui/Modal'
 import { projectsService } from '@/services/projects.service'
 import { EmptyState } from '@/components/ui/EmptyState'
 import type { Project } from '@/types/annotation.types'
@@ -87,7 +89,7 @@ export function ProjectsPage() {
       </div>
 
       {isLoading ? (
-        <div className="bg-white border border-border rounded-md divide-y">
+        <div className="mira-panel rounded-md divide-y">
           {[1, 2, 3].map((i) => (
             <div key={i} className="h-14 animate-pulse bg-muted/30" />
           ))}
@@ -97,7 +99,7 @@ export function ProjectsPage() {
           Failed to load projects. Ensure the backend server is running.
         </div>
       ) : filteredProjects.length === 0 ? (
-        <div className="bg-white border border-border rounded-md">
+        <div className="mira-panel rounded-md">
           <EmptyState
             title="No projects found"
             description={
@@ -111,7 +113,7 @@ export function ProjectsPage() {
           />
         </div>
       ) : (
-        <div className="bg-white border border-border rounded-md overflow-hidden">
+        <div className="mira-panel rounded-md overflow-hidden">
           <table className="w-full text-sm">
             <thead>
               <tr className="border-b border-border bg-muted/30">
@@ -171,17 +173,18 @@ export function ProjectsPage() {
       )}
 
       {showCreateModal && (
-        <div className="fixed inset-0 bg-black/20 backdrop-blur-[1px] z-50 flex items-center justify-center p-4">
-          <div className="bg-white border border-border rounded-md max-w-md w-full p-5 shadow-lg space-y-4 fade-enter">
-            <h2 className="text-base font-semibold">Create New Project</h2>
+        <Modal
+          title="Create Project"
+          subtitle="Set up a workspace for datasets and annotation."
+          onClose={() => setShowCreateModal(false)}
+        >
             {createError && (
-              <div className="p-2.5 rounded-md bg-destructive/5 border border-destructive/20 text-destructive text-xs">
+              <div className="mb-3 p-2.5 rounded-md bg-destructive/5 border border-destructive/20 text-destructive text-xs">
                 {createError}
               </div>
             )}
-            <form onSubmit={handleCreate} className="space-y-3">
-              <div>
-                <label className="text-xs font-medium block mb-1">Project Name</label>
+            <form onSubmit={handleCreate} className="space-y-3.5">
+              <Field label="Project Name" icon={FolderKanban}>
                 <input
                   type="text"
                   required
@@ -190,28 +193,27 @@ export function ProjectsPage() {
                   onChange={(e) => setNewName(e.target.value)}
                   className="mira-input"
                 />
-              </div>
+              </Field>
               <div>
-                <label className="text-xs font-medium block mb-1">Description</label>
+                <label className="text-xs font-medium block mb-1.5">Description</label>
                 <textarea
                   rows={3}
                   placeholder="Optional details…"
                   value={newDesc}
                   onChange={(e) => setNewDesc(e.target.value)}
-                  className="w-full px-2.5 py-2 text-sm bg-white border border-border rounded-md focus:outline-none focus:ring-2 focus:ring-primary/20"
+                  className="mira-textarea"
                 />
               </div>
               <div className="flex justify-end gap-2 pt-1">
                 <button type="button" onClick={() => setShowCreateModal(false)} className="mira-btn-ghost">
                   Cancel
                 </button>
-                <button type="submit" disabled={createMutation.isPending} className="mira-btn-primary">
+                <button type="submit" disabled={createMutation.isPending} className="mira-btn-primary h-9 px-4">
                   {createMutation.isPending ? 'Creating…' : 'Create Project'}
                 </button>
               </div>
             </form>
-          </div>
-        </div>
+        </Modal>
       )}
     </div>
   )

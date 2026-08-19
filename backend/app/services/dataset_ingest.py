@@ -14,6 +14,8 @@ from PIL import Image, UnidentifiedImageError
 
 from app.config import settings
 from app.models.dataset_item import DatasetItem, ItemStatus
+from app.modules.video.ingest import ingest_video_bytes
+from app.modules.video.paths import MAX_VIDEO_BYTES, is_video_name
 from app.repositories.dataset_repo import DatasetItemRepository, DatasetRepository
 from app.services.dataset_paths import (
     MAX_IMAGE_BYTES,
@@ -126,7 +128,14 @@ async def ingest_image_bytes(
     return await item_repo.create(item)
 
 
-def inspect_zip_file(zip_path: Path) -> dict[str, Any]:
+def _media_checker(modality: str):
+    if modality in {"video", "multimodal"}:
+        max_bytes = MAX_VIDEO_BYTES
+        return is_video_name, max_bytes, "valid_videos", "corrupted_videos"
+    return is_image_name, MAX_IMAGE_BYTES, "valid_images", "corrupted_images"
+
+
+def inspect_zip_file(zip_path: Path, modality: str = "image") -> dict[str, Any]:
     if zip_path.stat().st_size > MAX_ZIP_BYTES:
         raise ValueError("ZIP exceeds 12GB limit")
 
@@ -139,6 +148,7 @@ def inspect_zip_file(zip_path: Path) -> dict[str, Any]:
     seen_paths: dict[str, int] = {}
     crc_index: dict[tuple[int, int], list[str]] = {}
     uncompressed = 0
+    is_media, max_member_bytes, valid_key, corrupted_key = _media_checker(modality)
 
     try:
         zf = zipfile.ZipFile(zip_path)
@@ -183,11 +193,11 @@ def inspect_zip_file(zip_path: Path) -> dict[str, Any]:
                 folders.add("/".join(acc))
 
             uncompressed += info.file_size
-            if info.file_size > MAX_IMAGE_BYTES:
+            if info.file_size > max_member_bytes:
                 large_files.append(rel)
                 continue
 
-            if not is_image_name(rel):
+            if not is_media(rel):
                 unsupported.append(rel)
                 continue
 
@@ -216,7 +226,9 @@ def inspect_zip_file(zip_path: Path) -> dict[str, Any]:
     empty_folders = sorted(f for f in folders if f and not any(v["relative_path"].startswith(f + "/") or parent_folder_of(v["relative_path"]) == f for v in valid))
 
     return {
-        "valid_images": len(valid),
+        valid_key: len(valid),
+        "valid_images": len(valid) if valid_key == "valid_images" else 0,
+        "valid_videos": len(valid) if valid_key == "valid_videos" else 0,
         "folder_count": len([f for f in folders if f]),
         "folders": sorted(f for f in folders if f),
         "duplicate_files": duplicates[:200],
@@ -226,27 +238,32 @@ def inspect_zip_file(zip_path: Path) -> dict[str, Any]:
         "large_files": large_files,
         "invalid_paths": invalid_paths[:50],
         "empty_folders": empty_folders[:50],
+        corrupted_key: [],
         "corrupted_images": [],
         "members": valid,
     }
 
 
-def save_zip_job(dataset_id: str, zip_bytes: bytes) -> tuple[str, dict[str, Any]]:
+def save_zip_job(dataset_id: str, zip_bytes: bytes, modality: str = "image") -> tuple[str, dict[str, Any]]:
     job_id = uuid.uuid4().hex
     zip_path = _jobs_root() / f"{job_id}.zip"
     zip_path.write_bytes(zip_bytes)
-    report = inspect_zip_file(zip_path)
+    report = inspect_zip_file(zip_path, modality)
     payload = {
         "job_id": job_id,
         "dataset_id": dataset_id,
+        "modality": modality,
         "zip_path": str(zip_path),
         "report": {k: v for k, v in report.items() if k != "members"},
         "member_count": len(report["members"]),
     }
     (_jobs_root() / f"{job_id}.json").write_text(json.dumps(payload), encoding="utf-8")
+    valid_count = report.get("valid_videos") or report.get("valid_images") or 0
     report_out = payload["report"] | {
         "job_id": job_id,
-        "valid_images": report["valid_images"],
+        "valid_images": report.get("valid_images", 0),
+        "valid_videos": report.get("valid_videos", 0),
+        "valid_count": valid_count,
         "folder_count": report["folder_count"],
         "folders": report["folders"][:80],
     }
@@ -274,15 +291,21 @@ async def import_zip_job(db, dataset_id: uuid.UUID, job_id: str) -> dict[str, An
     if not dataset:
         raise FileNotFoundError("Dataset not found")
 
+    modality = job.get("modality") or getattr(dataset.modality, "value", str(dataset.modality))
+    is_media, max_member_bytes, _, _ = _media_checker(modality)
+    video_mode = modality in {"video", "multimodal"}
+
     sem = asyncio.Semaphore(INGEST_CONCURRENCY)
     created = 0
     skipped = 0
     corrupted = 0
+    rejected = 0
     lock = asyncio.Lock()
     folders: set[str] = set()
+    rejections: list[dict[str, str]] = []
 
     async def handle(rel: str, payload: bytes) -> None:
-        nonlocal created, skipped, corrupted
+        nonlocal created, skipped, corrupted, rejected
         async with sem:
             existing = await item_repo.get_by_relative_path(dataset_id, rel)
             if existing:
@@ -292,6 +315,20 @@ async def import_zip_job(db, dataset_id: uuid.UUID, job_id: str) -> dict[str, An
             parent = parent_folder_of(rel)
             if parent:
                 folders.add(parent)
+            if video_mode:
+                item, error = await ingest_video_bytes(
+                    db=db,
+                    dataset_id=dataset_id,
+                    relative_path=rel,
+                    data=payload,
+                )
+                async with lock:
+                    if error:
+                        rejected += 1
+                        rejections.append({"path": rel, "reason": error})
+                    elif item:
+                        created += 1
+                return
             item = await ingest_image_bytes(
                 db=db,
                 dataset_id=dataset_id,
@@ -314,7 +351,7 @@ async def import_zip_job(db, dataset_id: uuid.UUID, job_id: str) -> dict[str, An
                     rel = normalize_relative_path(info.filename)
                 except ValueError:
                     continue
-                if not rel or not is_image_name(rel) or info.file_size > MAX_IMAGE_BYTES:
+                if not rel or not is_media(rel) or info.file_size > max_member_bytes:
                     continue
                 pairs.append((rel, info.filename))
         return pairs
@@ -350,6 +387,8 @@ async def import_zip_job(db, dataset_id: uuid.UUID, job_id: str) -> dict[str, An
         "imported": created,
         "skipped_duplicates": skipped,
         "corrupted": corrupted,
+        "rejected": rejected,
+        "rejections": rejections[:100],
         "item_count": total,
         "folder_count": len(folders),
     }

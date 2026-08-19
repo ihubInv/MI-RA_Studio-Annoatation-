@@ -2,22 +2,31 @@ import { useEffect, useMemo, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import {
+  Film,
   ArrowLeft,
+  ArrowUpDown,
+  CheckCircle2,
   ChevronLeft,
   ChevronRight,
+  CircleDashed,
+  Clock,
   Download,
   Eye,
   EyeOff,
+  FileJson,
   FolderInput,
   Image as ImageIcon,
   Pencil,
   Search,
+  Sparkles,
   Trash2,
   Upload,
 } from 'lucide-react'
+import { inferenceService } from '@/modules/image/api/inference.service'
 import { datasetsService } from '@/services/datasets.service'
 import { annotationsService } from '@/services/annotations.service'
 import { EmptyState } from '@/components/ui/EmptyState'
+import { Select } from '@/components/ui/Select'
 import { AnnotationOverlay, loadLabelSchema } from '@/modules/image'
 import { DatasetExplorer, findFolder } from '@/features/datasets/components/DatasetExplorer'
 import { DatasetUploadModal } from '@/features/datasets/components/DatasetUploadModal'
@@ -26,6 +35,7 @@ import { StorageBadge } from '@/features/datasets/components/StorageBadge'
 import { getLocalAccessState, reconnectDirectory } from '@/features/datasets/local/registry'
 import { STATUS_META, type FolderNode } from '@/features/datasets/datasetTree.types'
 import type { DatasetItem } from '@/types/annotation.types'
+import { formatBytes, formatDuration } from '@/modules/video'
 import { cn } from '@/utils/cn'
 
 export function DatasetItemsPage() {
@@ -51,6 +61,7 @@ export function DatasetItemsPage() {
     queryFn: () => datasetsService.get(datasetId!),
     enabled: Boolean(datasetId),
   })
+  const isVideoDataset = dataset?.modality === 'video' || dataset?.modality === 'multimodal'
   const isLocal = (dataset?.storage_mode || 'server') === 'local'
 
   useEffect(() => {
@@ -174,17 +185,37 @@ export function DatasetItemsPage() {
               <FolderInput className="w-4 h-4" /> Reconnect
             </button>
           )}
-          <select
+          <Select
+            size="sm"
+            className="w-32"
             value={exportFormat}
-            onChange={(e) => setExportFormat(e.target.value)}
-            className="mira-input h-8 text-xs w-28"
+            onChange={setExportFormat}
+            options={['json', 'coco', 'yolo', 'voc', 'labelme', 'csv', 'cvat'].map((f) => ({
+              value: f,
+              label: f.toUpperCase(),
+              icon: FileJson,
+            }))}
+          />
+          <button
+            className="mira-btn-ghost"
+            disabled={!datasetId || isLocal}
+            title={isLocal ? 'Batch AI requires server-uploaded images' : 'Run YOLO pre-label on dataset'}
+            onClick={async () => {
+              if (!datasetId) return
+              try {
+                const res = await inferenceService.prelabel({
+                  dataset_id: datasetId,
+                  folder: folder || undefined,
+                  output: 'bbox',
+                })
+                alert(res.message || 'Pre-label queued. Requires Celery worker + server storage.')
+              } catch (err: any) {
+                alert(err?.response?.data?.detail || err?.message || 'Pre-label failed')
+              }
+            }}
           >
-            {['json', 'coco', 'yolo', 'voc', 'labelme', 'csv'].map((f) => (
-              <option key={f} value={f}>
-                {f.toUpperCase()}
-              </option>
-            ))}
-          </select>
+            <Sparkles className="w-4 h-4" /> AI Pre-label
+          </button>
           <button
             className="mira-btn-ghost"
             onClick={() => datasetId && datasetsService.exportDataset({ dataset_id: datasetId, format: exportFormat, folder })}
@@ -246,7 +277,7 @@ export function DatasetItemsPage() {
 
       <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-8 gap-2">
         {stats.map((s) => (
-          <div key={s.label} className="bg-white border border-border rounded-md px-3 py-2">
+          <div key={s.label} className="mira-panel rounded-md px-3 py-2">
             <p className="text-2xs text-muted-foreground">{s.label}</p>
             <p className="text-lg font-semibold tabular-nums">{typeof s.value === 'number' ? s.value.toLocaleString() : s.value}</p>
           </div>
@@ -254,7 +285,7 @@ export function DatasetItemsPage() {
       </div>
 
       {folderStats && folder && (
-        <div className="bg-white border border-border rounded-md px-4 py-3 text-sm flex flex-wrap gap-x-6 gap-y-1">
+        <div className="mira-panel rounded-md px-4 py-3 text-sm flex flex-wrap gap-x-6 gap-y-1">
           <span className="font-medium">{folderStats.path}</span>
           <span>Total {folderStats.image_count}</span>
           <span className="text-emerald-700">Completed {folderStats.completed + folderStats.approved}</span>
@@ -264,7 +295,7 @@ export function DatasetItemsPage() {
         </div>
       )}
 
-      <div className="flex min-h-[560px] border border-border rounded-md overflow-hidden bg-white">
+      <div className="flex min-h-[560px] mira-panel overflow-hidden">
         <aside className="w-64 shrink-0 border-r border-border overflow-auto p-2">
           <p className="mira-section-label px-2 py-1">Dataset explorer</p>
           {tree ? (
@@ -302,27 +333,35 @@ export function DatasetItemsPage() {
                 className="mira-input h-8 pl-7 text-xs"
               />
             </div>
-            <select
+            <Select
+              size="sm"
+              className="w-40"
               value={statusFilter}
-              onChange={(e) => {
-                setStatusFilter(e.target.value)
+              onChange={(v) => {
+                setStatusFilter(v)
                 setPage(1)
               }}
-              className="mira-input h-8 text-xs w-36"
-            >
-              <option value="">All statuses</option>
-              <option value="ready">Not annotated</option>
-              <option value="annotating">In progress</option>
-              <option value="annotated">Completed</option>
-              <option value="in_review">Needs review</option>
-              <option value="approved">Approved</option>
-            </select>
-            <select value={sort} onChange={(e) => setSort(e.target.value)} className="mira-input h-8 text-xs w-28">
-              <option value="path">Path</option>
-              <option value="name">Name</option>
-              <option value="date">Date</option>
-              <option value="status">Status</option>
-            </select>
+              options={[
+                { value: '', label: 'All statuses', icon: CircleDashed },
+                { value: 'ready', label: 'Not annotated', icon: CircleDashed },
+                { value: 'annotating', label: 'In progress', icon: Clock },
+                { value: 'annotated', label: 'Completed', icon: CheckCircle2 },
+                { value: 'in_review', label: 'Needs review', icon: Clock },
+                { value: 'approved', label: 'Approved', icon: CheckCircle2 },
+              ]}
+            />
+            <Select
+              size="sm"
+              className="w-32"
+              value={sort}
+              onChange={setSort}
+              options={[
+                { value: 'path', label: 'Path', icon: ArrowUpDown },
+                { value: 'name', label: 'Name', icon: ArrowUpDown },
+                { value: 'date', label: 'Date', icon: ArrowUpDown },
+                { value: 'status', label: 'Status', icon: ArrowUpDown },
+              ]}
+            />
             <label className="text-2xs flex items-center gap-1">
               <input type="checkbox" checked={recursive} onChange={(e) => setRecursive(e.target.checked)} />
               Subfolders
@@ -364,10 +403,10 @@ export function DatasetItemsPage() {
               </div>
             ) : items.length === 0 ? (
               <EmptyState
-                title="No images in this folder"
+                title={isVideoDataset ? 'No videos in this folder' : 'No images in this folder'}
                 description={
                   isLocal
-                    ? 'Attach a local folder, ZIP, or images. Original files stay on this computer.'
+                    ? `Attach a local folder, ZIP, or ${isVideoDataset ? 'videos' : 'images'}. Original files stay on this computer.`
                     : 'Upload a ZIP or folder to keep the original dataset structure.'
                 }
                 action={{
@@ -381,16 +420,21 @@ export function DatasetItemsPage() {
                   const overlay = previews?.[item.id]
                   const count = overlay?.object_count ?? 0
                   const preview = count > 0 ? item.media_url || item.thumbnail_url : item.thumbnail_url || item.media_url
-                  const isImage = (item.mime_type || '').startsWith('image/')
+                  const isVideo = isVideoDataset || (item.mime_type || '').startsWith('video/')
+                  const isProcessing = item.status === 'processing' || item.status === 'pending'
                   const meta = STATUS_META[item.status] || STATUS_META.ready
                   const checked = selectedIds.includes(item.id)
-                  const href = folder
-                    ? `/annotate/${item.id}?folder=${encodeURIComponent(folder)}`
-                    : `/annotate/${item.id}`
+                  const href = isVideo
+                    ? folder
+                      ? `/annotate/video/${item.id}?folder=${encodeURIComponent(folder)}`
+                      : `/annotate/video/${item.id}`
+                    : folder
+                      ? `/annotate/${item.id}?folder=${encodeURIComponent(folder)}`
+                      : `/annotate/${item.id}`
                   return (
                     <div
                       key={item.id}
-                      className="group bg-white border border-border rounded-md overflow-hidden hover:border-primary/40"
+                      className="group mira-panel rounded-md overflow-hidden hover:border-primary/40"
                     >
                       <div className="relative">
                         <label className="absolute top-1 right-1 z-10">
@@ -412,13 +456,20 @@ export function DatasetItemsPage() {
                               fallback={item.thumbnail_url || item.media_url}
                               alt={item.original_filename || item.filename}
                             />
-                          ) : isImage && preview ? (
+                          ) : preview ? (
                             <img
                               src={preview}
                               alt={item.original_filename || item.filename}
                               className="w-full h-full object-contain"
                               loading="lazy"
                             />
+                          ) : isVideo ? (
+                            <div className="w-full h-full flex flex-col items-center justify-center text-muted-foreground gap-1">
+                              <Film className="w-8 h-8" />
+                              {item.duration_seconds ? (
+                                <span className="text-2xs">{formatDuration(item.duration_seconds)}</span>
+                              ) : null}
+                            </div>
                           ) : (
                             <div className="w-full h-full flex items-center justify-center text-muted-foreground">
                               <ImageIcon className="w-8 h-8" />
@@ -434,7 +485,7 @@ export function DatasetItemsPage() {
                           )}
                           <span className={cn('absolute top-1 left-1 text-2xs px-1.5 py-0.5 rounded bg-white/90', meta.text)}>
                             <span className={cn('inline-block w-1.5 h-1.5 rounded-full mr-1', meta.dot)} />
-                            {meta.label}
+                            {isProcessing && isVideo ? 'Processing' : meta.label}
                           </span>
                           <div className="absolute inset-0 opacity-0 group-hover:opacity-100 flex items-center justify-center bg-primary/10">
                             <span className="text-primary text-xs font-medium flex items-center gap-1 bg-white/90 px-2 py-1 rounded-md">
@@ -443,21 +494,31 @@ export function DatasetItemsPage() {
                           </div>
                         </Link>
                       </div>
-                      <div className="p-1.5 flex items-start justify-between gap-1">
-                        <p
-                          className="text-2xs truncate flex-1"
-                          title={item.relative_path || item.original_filename || item.filename}
-                        >
-                          {item.relative_path || item.original_filename || item.filename}
-                        </p>
-                        <button
-                          onClick={() => {
-                            if (confirm('Delete this file?')) deleteMutation.mutate(item.id)
-                          }}
-                          className="text-muted-foreground hover:text-destructive shrink-0"
-                        >
-                          <Trash2 className="w-3 h-3" />
-                        </button>
+                      <div className="p-1.5 space-y-0.5">
+                        <div className="flex items-start justify-between gap-1">
+                          <p
+                            className="text-2xs truncate flex-1"
+                            title={item.relative_path || item.original_filename || item.filename}
+                          >
+                            {item.relative_path || item.original_filename || item.filename}
+                          </p>
+                          <button
+                            onClick={() => {
+                              if (confirm('Delete this file?')) deleteMutation.mutate(item.id)
+                            }}
+                            className="text-muted-foreground hover:text-destructive shrink-0"
+                          >
+                            <Trash2 className="w-3 h-3" />
+                          </button>
+                        </div>
+                        {isVideo && (
+                          <p className="text-2xs text-muted-foreground tabular-nums">
+                            {formatBytes(item.file_size_bytes || 0)}
+                            {item.duration_seconds ? ` · ${formatDuration(item.duration_seconds)}` : ''}
+                            {item.fps ? ` · ${item.fps.toFixed(2)} fps` : ''}
+                            {item.width && item.height ? ` · ${item.width}×${item.height}` : ''}
+                          </p>
+                        )}
                       </div>
                     </div>
                   )
@@ -484,6 +545,7 @@ export function DatasetItemsPage() {
         <DatasetUploadModal
           datasetId={datasetId}
           storageMode={dataset?.storage_mode || 'local'}
+          modality={dataset?.modality || 'image'}
           onClose={() => setShowUpload(false)}
           onDone={() => {
             setShowUpload(false)

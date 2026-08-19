@@ -10,22 +10,25 @@ export interface AnnotationObjectPayload {
   comment?: string
   is_locked?: boolean
   is_hidden?: boolean
+  frame_index?: number
+  is_keyframe?: boolean
   linked_object_id?: string
   link_relation?: string
   hierarchical_labels?: string[]
-}
-
-export interface AnnotationPreview {
-  annotation_id: string
-  status?: string
-  object_count: number
-  objects: AnnotationObjectPayload[]
 }
 
 export interface SaveAnnotationPayload {
   item_id: string
   task_id?: string
   notes?: string
+  objects: AnnotationObjectPayload[]
+  metadata?: Record<string, unknown>
+}
+
+export interface AnnotationPreview {
+  annotation_id: string
+  status?: string
+  object_count: number
   objects: AnnotationObjectPayload[]
 }
 
@@ -55,7 +58,10 @@ export const annotationsService = {
     return data
   },
 
-  update: async (id: string, payload: { objects: AnnotationObjectPayload[]; notes?: string }): Promise<Annotation> => {
+  update: async (
+    id: string,
+    payload: { objects: AnnotationObjectPayload[]; notes?: string; metadata?: Record<string, unknown> },
+  ): Promise<Annotation> => {
     const { data } = await api.patch(`/api/v1/annotations/${id}`, payload)
     return data
   },
@@ -67,7 +73,11 @@ export const annotationsService = {
 
   save: async (existingId: string | null, payload: SaveAnnotationPayload): Promise<Annotation> => {
     if (existingId) {
-      return annotationsService.update(existingId, { objects: payload.objects, notes: payload.notes })
+      return annotationsService.update(existingId, {
+        objects: payload.objects,
+        notes: payload.notes,
+        metadata: payload.metadata,
+      })
     }
     return annotationsService.create(payload)
   },

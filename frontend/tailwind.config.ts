@@ -51,7 +51,7 @@ const config: Config = {
           orange: '#fc6900',
           canvas: '#ffffff',
         },
-        workspace: '#eef2f7',
+        workspace: '#e7f2fa',
       },
       borderRadius: {
         lg: 'var(--radius)',

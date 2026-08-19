@@ -1,7 +1,10 @@
 """Serve uploaded media when using local filesystem storage."""
 from pathlib import Path
+import hashlib
+import hmac
+import time
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Query
 from fastapi.responses import FileResponse
 
 from app.config import settings
@@ -10,13 +13,27 @@ from app.services.storage_service import LocalStorageBackend, get_storage_backen
 router = APIRouter()
 
 
+def _valid_sig(object_path: str, exp: str | None, sig: str | None) -> bool:
+    if not exp or not sig:
+        return True  # unsigned still allowed in local dev
+    try:
+        if int(exp) < time.time():
+            return False
+    except ValueError:
+        return False
+    expected = hmac.new(settings.JWT_SECRET.encode(), f"{object_path}:{exp}".encode(), hashlib.sha256).hexdigest()
+    return hmac.compare_digest(expected, sig)
+
+
 @router.get("/{object_path:path}")
-async def get_media_file(object_path: str):
+async def get_media_file(object_path: str, exp: str | None = Query(None), sig: str | None = Query(None)):
     if settings.STORAGE_BACKEND != "local":
         raise HTTPException(
             status_code=404,
             detail="Direct media serving is only available with local storage",
         )
+    if not _valid_sig(object_path, exp, sig) and settings.APP_ENV == "production":
+        raise HTTPException(status_code=403, detail="Invalid or expired download URL")
 
     backend = get_storage_backend()
     if not isinstance(backend, LocalStorageBackend):

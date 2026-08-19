@@ -173,6 +173,8 @@ def build_export_zip(dataset: Dataset, rows: list[dict[str, Any]], fmt: str, inc
             _write_labelme(zf, rows)
         elif fmt == "csv":
             zf.writestr("annotations.csv", _to_csv(rows))
+        elif fmt == "cvat":
+            zf.writestr("annotations.xml", _to_cvat(rows))
         else:
             zf.writestr(
                 "annotations.json",
@@ -385,3 +387,80 @@ def _write_labelme(zf: zipfile.ZipFile, rows: list[dict[str, Any]]) -> None:
         }
         rel = Path(item.relative_path or item.original_filename).with_suffix(".json")
         zf.writestr(f"labelme/{rel.as_posix()}", json.dumps(payload, indent=2))
+
+
+def _to_cvat(rows: list[dict[str, Any]]) -> str:
+    root = ET.Element("annotations")
+    ET.SubElement(root, "version").text = "1.1"
+    meta = ET.SubElement(root, "meta")
+    task = ET.SubElement(meta, "task")
+    ET.SubElement(task, "name").text = "MI-RA Export"
+    ET.SubElement(task, "size").text = str(len(rows))
+
+    for idx, row in enumerate(rows):
+        item: DatasetItem = row["item"]
+        img = ET.SubElement(
+            root,
+            "image",
+            id=str(idx),
+            name=item.original_filename,
+            width=str(item.width or 0),
+            height=str(item.height or 0),
+        )
+        for obj in row["objects"]:
+            geom = obj["geometry"]
+            label = obj["class_name"]
+            tool = obj["tool_type"]
+            pts = _points(geom)
+            bbox = _bbox(geom)
+            attrs = obj.get("attributes") or {}
+
+            if tool in {
+                "polygon",
+                "polygon_mask",
+                "freehand_mask",
+                "semantic_seg",
+                "instance_seg",
+                "freehand",
+                "brush",
+                "area",
+                "mask",
+                "mask_refine",
+            } and pts:
+                points_str = ";".join(f"{x:.2f},{y:.2f}" for x, y in pts)
+                ET.SubElement(
+                    img,
+                    "polygon",
+                    label=label,
+                    points=points_str,
+                    source="manual",
+                    occluded="0",
+                )
+            elif tool in {"keypoint", "skeleton"} and pts:
+                for i, (x, y) in enumerate(pts):
+                    ET.SubElement(
+                        img,
+                        "points",
+                        label=f"{label}_{i}",
+                        points=f"{x:.2f},{y:.2f}",
+                        occluded="0",
+                    )
+            elif bbox:
+                x, y, w, h = bbox
+                node = ET.SubElement(
+                    img,
+                    "box",
+                    label=label,
+                    xtl=f"{x:.2f}",
+                    ytl=f"{y:.2f}",
+                    xbr=f"{x + w:.2f}",
+                    ybr=f"{y + h:.2f}",
+                    occluded="0",
+                )
+                if attrs.get("confidence") is not None:
+                    node.set("confidence", str(attrs["confidence"]))
+            elif tool in {"point"} and geom.get("x") is not None:
+                x, y = float(geom["x"]), float(geom["y"])
+                ET.SubElement(img, "points", label=label, points=f"{x:.2f},{y:.2f}", occluded="0")
+
+    return ET.tostring(root, encoding="unicode")

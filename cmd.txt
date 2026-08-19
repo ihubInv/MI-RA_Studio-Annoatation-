@@ -17,6 +17,23 @@ Then open http://localhost:5173
 
 Login: admin@mira-lab.ai / admin1234
 
+3. Enable YOLO detection (one-time, in backend venv)
+
+cd E:\MultiAnno\mi-ra-studio\backend
+.\.venv\Scripts\pip.exe install -r requirements-ml.txt
+
+First detect downloads YOLO weights (~6 MB). Use AI Assist → Detect settings → Detect Objects (YOLO).
+Output: bounding boxes or instance polygons. Optional class filter: person, car, dog (COCO names).
+
+SAM segmentation + YOLO pose also use the ML stack. CVAT export available in dataset Export dropdown.
+Batch pre-label: dataset page → AI Pre-label (server-uploaded datasets + Celery worker).
+
+Video upload (Phase 1): create a dataset with modality Video, then Upload/Attach.
+Server upload validates with ffprobe (requires FFmpeg on PATH): format, codec, resolution, FPS, duration, size, corruption.
+
+Video processing (Phase 2): after upload, each video is processed automatically — metadata, poster + preview thumbnails, optional 360p/720p/1080p proxies for large files, and a frame index (frame ↔ timestamp). Items show "Processing" until ready. API: GET /api/v1/video/{itemId}/probe, /frame-index, /frames/lookup.
+Install FFmpeg if video upload returns "ffprobe is not installed".
+
 If port 8000 is already taken from an old process:
 
 

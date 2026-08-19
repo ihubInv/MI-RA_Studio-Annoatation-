@@ -5,32 +5,32 @@
 /* ── MI-RA Studio Premium Design System ─────────────────────────── */
 @layer base {
   :root {
-    /* Brand: #0d559e blue, #fc6900 orange, #ffffff canvas, #000000 text */
-    --background: 210 33% 98%;
-    --foreground: 0 0% 0%;
-    --card: 0 0% 100%;
-    --card-foreground: 0 0% 0%;
-    --popover: 0 0% 100%;
-    --popover-foreground: 0 0% 0%;
+    /* Brand ice-blue mix: #0d559e, #fc6900, pale glass surfaces */
+    --background: 205 42% 96%;
+    --foreground: 210 40% 12%;
+    --card: 205 50% 98%;
+    --card-foreground: 210 40% 12%;
+    --popover: 205 45% 98%;
+    --popover-foreground: 210 40% 12%;
     --primary: 210 85% 34%;
     --primary-foreground: 0 0% 100%;
-    --secondary: 210 40% 96%;
-    --secondary-foreground: 0 0% 0%;
-    --muted: 210 25% 96%;
-    --muted-foreground: 220 9% 46%;
-    --accent: 210 40% 96%;
-    --accent-foreground: 0 0% 0%;
+    --secondary: 205 38% 93%;
+    --secondary-foreground: 210 40% 12%;
+    --muted: 205 32% 92%;
+    --muted-foreground: 215 16% 40%;
+    --accent: 205 40% 93%;
+    --accent-foreground: 210 40% 12%;
     --destructive: 0 72% 51%;
     --destructive-foreground: 0 0% 100%;
-    --border: 220 13% 91%;
-    --input: 220 13% 91%;
+    --border: 207 28% 82%;
+    --input: 207 28% 82%;
     --ring: 210 85% 34%;
     --radius: 0.375rem;
 
     --brand-blue: #0d559e;
     --brand-orange: #fc6900;
     --canvas: #ffffff;
-    --workspace: #eef2f7;
+    --workspace: #e7f2fa;
   }
 }
 
@@ -60,7 +60,16 @@
 
 @layer components {
   .mira-panel {
-    @apply bg-card border border-border rounded-md;
+    background: linear-gradient(
+      180deg,
+      rgba(255, 255, 255, 0.7) 0%,
+      rgba(226, 240, 250, 0.78) 100%
+    );
+    border: 1px solid rgba(13, 85, 158, 0.14);
+    border-radius: 0.5rem;
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    box-shadow: 0 8px 24px rgba(13, 85, 158, 0.06);
   }
 
   .mira-toolbar-btn {
@@ -86,8 +95,214 @@
   }
 
   .mira-input {
-    @apply w-full h-8 px-2.5 text-sm bg-white border border-border rounded-md
+    @apply w-full h-8 px-2.5 text-sm rounded-md
       focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary;
+    background: rgba(255, 255, 255, 0.88);
+    border: 1px solid rgba(13, 85, 158, 0.28);
+  }
+
+  select.mira-input,
+  .mira-select {
+    appearance: none;
+    -webkit-appearance: none;
+    height: 2.5rem;
+    padding-right: 2.25rem;
+    cursor: pointer;
+    background-color: rgba(255, 255, 255, 0.9);
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%230d559e' stroke-width='2.2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'/%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: right 0.7rem center;
+    background-size: 14px;
+  }
+
+  select.mira-input:hover,
+  .mira-select:hover {
+    border-color: #0d559e;
+  }
+
+  .mira-textarea {
+    @apply w-full px-2.5 py-2 text-sm rounded-md
+      focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary;
+    min-height: 4.5rem;
+    resize: vertical;
+    background: rgba(255, 255, 255, 0.88);
+    border: 1px solid rgba(13, 85, 158, 0.28);
+  }
+
+  .mira-field {
+    position: relative;
+  }
+
+  .mira-field-icon {
+    position: absolute;
+    left: 0.7rem;
+    top: 50%;
+    transform: translateY(-50%);
+    width: 0.95rem;
+    height: 0.95rem;
+    color: #0d559e;
+    pointer-events: none;
+    opacity: 0.8;
+  }
+
+  .mira-field .mira-input,
+  .mira-field .mira-select,
+  .mira-field select {
+    padding-left: 2.35rem;
+    height: 2.5rem;
+  }
+
+  .mira-modal-backdrop {
+    position: fixed;
+    inset: 0;
+    z-index: 50;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 1rem;
+    background: rgba(13, 85, 158, 0.22);
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+  }
+
+  .mira-modal {
+    width: min(440px, 100%);
+    max-height: 90vh;
+    overflow: visible;
+    padding: 1.5rem 1.5rem 1.25rem;
+    border-radius: 0.85rem;
+    background: linear-gradient(
+      180deg,
+      rgba(255, 255, 255, 0.92) 0%,
+      rgba(226, 240, 250, 0.9) 100%
+    );
+    border: 1px solid rgba(13, 85, 158, 0.18);
+    box-shadow:
+      0 1px 0 rgba(255, 255, 255, 0.8) inset,
+      0 24px 60px rgba(13, 85, 158, 0.22);
+    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
+  }
+
+  .mira-modal-wide {
+    width: min(520px, 100%);
+  }
+
+  .mira-choice {
+    text-align: left;
+    border: 1px solid rgba(13, 85, 158, 0.18);
+    background: rgba(255, 255, 255, 0.7);
+    border-radius: 0.5rem;
+    padding: 0.65rem 0.6rem;
+    transition: border-color 0.15s ease, background 0.15s ease, box-shadow 0.15s ease;
+  }
+
+  .mira-choice:hover {
+    border-color: rgba(13, 85, 158, 0.4);
+    background: rgba(255, 255, 255, 0.92);
+  }
+
+  .mira-select-root {
+    position: relative;
+    width: 100%;
+  }
+
+  .mira-select-trigger {
+    display: flex;
+    align-items: center;
+    gap: 0.55rem;
+    width: 100%;
+    height: 2.5rem;
+    padding: 0 0.7rem;
+    border-radius: 0.5rem;
+    background: rgba(255, 255, 255, 0.94);
+    border: 1.5px solid rgba(13, 85, 158, 0.28);
+    color: inherit;
+    font-size: 0.875rem;
+    text-align: left;
+    transition: border-color 0.15s ease, box-shadow 0.15s ease;
+  }
+
+  .mira-select-trigger-sm {
+    height: 2rem;
+    font-size: 0.75rem;
+    padding: 0 0.5rem;
+  }
+
+  .mira-select-trigger:hover,
+  .mira-select-open {
+    border-color: #0d559e;
+    box-shadow: 0 0 0 3px rgba(13, 85, 158, 0.16);
+  }
+
+  .mira-select-trigger-icon,
+  .mira-select-option-icon {
+    width: 1rem;
+    height: 1rem;
+    color: #0d559e;
+    flex-shrink: 0;
+  }
+
+  .mira-select-value {
+    flex: 1;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .mira-select-placeholder {
+    color: #94a3b8;
+  }
+
+  .mira-select-chevron {
+    width: 0.95rem;
+    height: 0.95rem;
+    color: #0d559e;
+    flex-shrink: 0;
+    transition: transform 0.15s ease;
+  }
+
+  .mira-select-menu {
+    position: absolute;
+    z-index: 80;
+    left: 0;
+    right: 0;
+    top: calc(100% + 6px);
+    margin: 0;
+    padding: 0.35rem;
+    list-style: none;
+    max-height: 16rem;
+    overflow: auto;
+    border-radius: 0.65rem;
+    background: rgba(255, 255, 255, 0.96);
+    border: 1px solid rgba(13, 85, 158, 0.16);
+    box-shadow: 0 16px 40px rgba(13, 85, 158, 0.18);
+    backdrop-filter: blur(12px);
+  }
+
+  .mira-select-option {
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+    width: 100%;
+    padding: 0.55rem 0.65rem;
+    border-radius: 0.45rem;
+    font-size: 0.8125rem;
+    color: inherit;
+    background: transparent;
+    border: 0;
+    cursor: pointer;
+  }
+
+  .mira-select-option:hover {
+    background: rgba(13, 85, 158, 0.08);
+  }
+
+  .mira-select-option-active {
+    background: rgba(13, 85, 158, 0.12);
+    color: #0d559e;
+    font-weight: 600;
   }
 
   .mira-btn-primary {
@@ -104,8 +319,10 @@
 
   .mira-btn-ghost {
     @apply inline-flex items-center justify-center gap-1.5 h-8 px-3 text-sm font-medium
-      rounded-md border border-border bg-white text-foreground transition-colors duration-150
+      rounded-md text-foreground transition-colors duration-150
       hover:bg-accent disabled:opacity-50;
+    background: rgba(255, 255, 255, 0.72);
+    border: 1px solid rgba(13, 85, 158, 0.18);
   }
 
   .mira-section-label {
@@ -122,6 +339,170 @@
 
   .mira-table-row {
     @apply border-b border-border hover:bg-accent/50 transition-colors duration-150;
+  }
+
+  .mira-app-bg {
+    position: relative;
+    isolation: isolate;
+    overflow: hidden;
+    background-color: #eef6fb;
+  }
+
+  .mira-app-bg::before {
+    content: '';
+    position: absolute;
+    inset: -32px;
+    z-index: -1;
+    background-image: url('/background-img.jpg');
+    background-size: cover;
+    background-position: center;
+    background-repeat: no-repeat;
+    filter: blur(16px);
+    transform: scale(1.06);
+  }
+
+  .mira-app-bg::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    z-index: -1;
+    pointer-events: none;
+    background:
+      linear-gradient(
+        118deg,
+        rgba(13, 85, 158, 0.22) 0%,
+        rgba(226, 240, 250, 0.22) 46%,
+        rgba(252, 105, 0, 0.1) 100%
+      );
+  }
+
+  .mira-auth-shell {
+    display: grid;
+    grid-template-columns: 1fr;
+    width: min(1120px, 100%);
+    min-height: 620px;
+    border-radius: 1rem;
+    overflow: hidden;
+    background: linear-gradient(
+      180deg,
+      rgba(255, 255, 255, 0.72) 0%,
+      rgba(232, 242, 250, 0.78) 100%
+    );
+    border: 1px solid rgba(13, 85, 158, 0.14);
+    box-shadow:
+      0 1px 0 rgba(255, 255, 255, 0.7) inset,
+      0 22px 60px rgba(13, 85, 158, 0.14);
+    backdrop-filter: blur(18px);
+    -webkit-backdrop-filter: blur(18px);
+  }
+
+  @media (min-width: 768px) {
+    .mira-auth-shell {
+      grid-template-columns: 1.05fr 0.95fr;
+      min-height: 680px;
+    }
+  }
+
+  .mira-auth-brand {
+    padding: 2.5rem 2.25rem;
+  }
+
+  @media (min-width: 768px) {
+    .mira-auth-brand {
+      padding: 3.25rem 3.5rem;
+      border-right: 1px solid rgba(13, 85, 158, 0.12);
+      background: linear-gradient(
+        160deg,
+        rgba(13, 85, 158, 0.07) 0%,
+        rgba(255, 255, 255, 0.18) 55%,
+        rgba(252, 105, 0, 0.05) 100%
+      );
+    }
+  }
+
+  .mira-auth-form {
+    padding: 2.25rem 1.75rem 2.5rem;
+  }
+
+  @media (min-width: 768px) {
+    .mira-auth-form {
+      padding: 3.25rem 3.25rem;
+    }
+  }
+
+  .mira-auth-form .mira-input {
+    height: 2.75rem;
+    padding-left: 2.5rem;
+    background: #ffffff;
+    border: 1.5px solid #7aa0c4;
+    border-radius: 0.5rem;
+    box-shadow: 0 1px 2px rgba(13, 85, 158, 0.08);
+    color: #111827;
+    transition: border-color 0.15s ease, box-shadow 0.15s ease;
+  }
+
+  .mira-auth-form .mira-input::placeholder {
+    color: #94a3b8;
+  }
+
+  .mira-auth-form .mira-input:hover {
+    border-color: #0d559e;
+  }
+
+  .mira-auth-form .mira-input:focus {
+    outline: none;
+    border-color: #0d559e;
+    box-shadow: 0 0 0 3px rgba(13, 85, 158, 0.2);
+  }
+
+  .mira-auth-field {
+    position: relative;
+  }
+
+  .mira-auth-field-icon {
+    position: absolute;
+    left: 0.75rem;
+    top: 50%;
+    transform: translateY(-50%);
+    width: 1rem;
+    height: 1rem;
+    color: #0d559e;
+    pointer-events: none;
+    opacity: 0.75;
+  }
+
+  .mira-auth-submit {
+    height: 2.75rem;
+    border-radius: 0.5rem;
+    background: linear-gradient(180deg, #1567b8 0%, #0d559e 100%);
+    box-shadow: 0 8px 18px rgba(13, 85, 158, 0.28);
+  }
+
+  .mira-auth-submit:hover:not(:disabled) {
+    opacity: 0.95;
+  }
+
+  .mira-sidebar {
+    background: linear-gradient(
+      180deg,
+      rgba(255, 255, 255, 0.78) 0%,
+      rgba(232, 242, 250, 0.72) 100%
+    );
+    border-right: 1px solid rgba(13, 85, 158, 0.12);
+    backdrop-filter: blur(18px);
+    -webkit-backdrop-filter: blur(18px);
+    box-shadow: 8px 0 28px rgba(13, 85, 158, 0.06);
+  }
+
+  .mira-header {
+    background: linear-gradient(
+      180deg,
+      rgba(255, 255, 255, 0.82) 0%,
+      rgba(238, 246, 251, 0.7) 100%
+    );
+    border-bottom: 1px solid rgba(13, 85, 158, 0.12);
+    backdrop-filter: blur(18px);
+    -webkit-backdrop-filter: blur(18px);
   }
 }
 

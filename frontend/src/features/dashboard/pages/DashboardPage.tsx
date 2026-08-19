@@ -28,7 +28,7 @@ export function DashboardPage() {
       </div>
 
       {/* Compact metrics row */}
-      <div className="bg-white border border-border rounded-md p-4">
+      <div className="mira-panel rounded-md p-4">
         <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-4">
           {metrics.map(({ label, value }) => (
             <div key={label}>
@@ -41,14 +41,14 @@ export function DashboardPage() {
 
       {/* Progress bars */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        <div className="bg-white border border-border rounded-md p-4">
+        <div className="mira-panel rounded-md p-4">
           <div className="flex items-center justify-between mb-2">
             <p className="text-sm font-medium">Annotation Progress</p>
             <span className="text-sm font-semibold text-primary">73%</span>
           </div>
           <ProgressBar value={73} />
         </div>
-        <div className="bg-white border border-border rounded-md p-4">
+        <div className="mira-panel rounded-md p-4">
           <div className="flex items-center justify-between mb-2">
             <p className="text-sm font-medium">Quality</p>
             <span className="text-sm font-semibold text-primary">94%</span>
@@ -58,7 +58,7 @@ export function DashboardPage() {
       </div>
 
       {/* Quick actions */}
-      <div className="bg-white border border-border rounded-md p-4">
+      <div className="mira-panel rounded-md p-4">
         <p className="text-sm font-semibold mb-3">Getting Started</p>
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
           {[
@@ -82,7 +82,7 @@ export function DashboardPage() {
       </div>
 
       {/* Modalities */}
-      <div className="bg-white border border-border rounded-md p-4">
+      <div className="mira-panel rounded-md p-4">
         <p className="text-sm font-semibold mb-3">Supported Modalities</p>
         <div className="flex flex-wrap gap-1.5">
           {['Image', 'Video', 'Audio', 'Text', 'LiDAR', 'Point Cloud', 'Depth', 'Medical', 'Multimodal'].map((m) => (

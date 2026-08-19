@@ -3,7 +3,7 @@ import { BRAND } from '@/lib/brand'
 import { cn } from '@/utils/cn'
 
 interface BrandLogoProps {
-  variant?: 'full' | 'compact'
+  variant?: 'full' | 'compact' | 'hero'
   to?: string | null
   className?: string
 }
@@ -15,7 +15,7 @@ export function BrandLogo({ variant = 'compact', to = '/dashboard', className }:
       alt={`${BRAND.name} — ${BRAND.tagline}`}
       className={cn(
         'w-auto object-contain object-left',
-        variant === 'full' ? 'h-16 sm:h-20' : 'h-8',
+        variant === 'hero' ? 'h-28 sm:h-36 lg:h-44 w-auto max-w-full' : variant === 'full' ? 'h-16 sm:h-20' : 'h-8',
         className,
       )}
     />

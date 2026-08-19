@@ -153,6 +153,10 @@ export interface DatasetItem {
   width?: number
   height?: number
   duration_seconds?: number
+  frame_count?: number
+  fps?: number
+  preview_url?: string
+  playback_url?: string
   metadata?: Record<string, unknown>
   tags?: string[]
   relative_path?: string

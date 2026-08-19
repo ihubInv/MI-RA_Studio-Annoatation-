@@ -33,9 +33,9 @@ export function DraftOverlay({
   const s = Math.max(viewScale, 0.05)
   const handle = 5 / s
   const font = 10 / s
-  const color = classColor
+  const color = tool === 'eraser' ? '#ef4444' : classColor
   const closed = CLOSED_TYPES.has(tool) || drawMode === 'polygon'
-  const brush = tool === 'brush' || tool === 'mask_refine' || drawMode === 'freehand'
+  const brush = tool === 'brush' || tool === 'mask_refine' || tool === 'eraser' || drawMode === 'freehand'
 
   const halo = {
     stroke: '#ffffff',

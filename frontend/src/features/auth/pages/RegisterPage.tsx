@@ -1,9 +1,17 @@
 import { useState } from 'react'
 import { useNavigate, Link } from 'react-router-dom'
-import { BrandLogo } from '@/components/brand/BrandLogo'
+import { Lock, Mail, User } from 'lucide-react'
+import { AuthSplitLayout } from '@/features/auth/components/AuthSplitLayout'
 import { api } from '@/services/api'
 import { useAuthStore } from '@/stores/authStore'
 import { cn } from '@/utils/cn'
+
+const FIELDS = [
+  { key: 'full_name', label: 'Full name', type: 'text', icon: User, placeholder: 'Your name' },
+  { key: 'username', label: 'Username', type: 'text', icon: User, placeholder: 'username' },
+  { key: 'email', label: 'Email', type: 'email', icon: Mail, placeholder: 'you@mira-lab.ai' },
+  { key: 'password', label: 'Password', type: 'password', icon: Lock, placeholder: '••••••••' },
+] as const
 
 export function RegisterPage() {
   const navigate = useNavigate()
@@ -30,52 +38,54 @@ export function RegisterPage() {
   }
 
   return (
-    <div className="min-h-screen bg-workspace flex items-center justify-center p-4">
-      <div className="w-full max-w-md fade-enter">
-        <div className="flex flex-col items-center mb-8">
-          <BrandLogo variant="full" to={null} />
-          <p className="text-muted-foreground text-xs mt-3">Create your account</p>
-        </div>
-
-        <div className="bg-white border border-border rounded-md p-6 shadow-sm">
-          <h2 className="text-sm font-semibold mb-5">Create account</h2>
-          {error && (
-            <div className="mb-4 p-2.5 rounded-md bg-destructive/5 border border-destructive/20 text-destructive text-xs">
-              {error}
-            </div>
-          )}
-          <form onSubmit={handleSubmit} className="space-y-3">
-            {(['full_name', 'username', 'email', 'password'] as const).map((field) => (
-              <div key={field}>
-                <label className="text-xs font-medium block mb-1 capitalize">{field.replace('_', ' ')}</label>
-                <input
-                  type={field === 'password' ? 'password' : field === 'email' ? 'email' : 'text'}
-                  value={form[field]}
-                  onChange={(e) => setForm((f) => ({ ...f, [field]: e.target.value }))}
-                  required
-                  className="mira-input"
-                />
-              </div>
-            ))}
-            <button
-              type="submit"
-              disabled={loading}
-              className={cn(
-                'w-full h-9 rounded-md font-medium text-sm bg-primary text-primary-foreground hover:opacity-90 transition-opacity',
-                loading && 'opacity-60 cursor-not-allowed',
-              )}
-            >
-              {loading ? 'Creating account…' : 'Create Account'}
-            </button>
-          </form>
-          <p className="text-center text-xs text-muted-foreground mt-5">
-            Already have an account?{' '}
-            <Link to="/login" className="text-primary hover:underline font-medium">
-              Sign in
-            </Link>
-          </p>
-        </div>
+    <AuthSplitLayout>
+      <div className="text-center mb-5">
+        <p className="mira-section-label mb-1.5">Get started</p>
+        <h2 className="text-xl font-semibold tracking-tight mb-1">Create account</h2>
+        <p className="text-sm text-muted-foreground">Join MI-RA Studio to start annotating.</p>
       </div>
-    </div>
+
+      {error && (
+        <div className="mb-4 p-2.5 rounded-md bg-destructive/5 border border-destructive/20 text-destructive text-xs">
+          {error}
+        </div>
+      )}
+
+      <form onSubmit={handleSubmit} className="space-y-3.5">
+        {FIELDS.map(({ key, label, type, icon: Icon, placeholder }) => (
+          <div key={key}>
+            <label className="text-xs font-medium block mb-1.5">{label}</label>
+            <div className="mira-auth-field">
+              <Icon className="mira-auth-field-icon" />
+              <input
+                type={type}
+                value={form[key]}
+                onChange={(e) => setForm((f) => ({ ...f, [key]: e.target.value }))}
+                required
+                placeholder={placeholder}
+                className="mira-input"
+              />
+            </div>
+          </div>
+        ))}
+        <button
+          type="submit"
+          disabled={loading}
+          className={cn(
+            'mira-auth-submit w-full font-medium text-sm text-white mt-1',
+            loading && 'opacity-60 cursor-not-allowed',
+          )}
+        >
+          {loading ? 'Creating account…' : 'Create Account'}
+        </button>
+      </form>
+
+      <p className="text-center text-xs text-muted-foreground mt-5">
+        Already have an account?{' '}
+        <Link to="/login" className="text-primary hover:underline font-medium">
+          Sign in
+        </Link>
+      </p>
+    </AuthSplitLayout>
   )
 }

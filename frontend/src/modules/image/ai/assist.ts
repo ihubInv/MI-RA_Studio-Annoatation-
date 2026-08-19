@@ -1,5 +1,9 @@
+import type { DetectOptions, DetectedObject } from '../api/inference.service'
+import { inferenceService } from '../api/inference.service'
 import type { Point } from '../canvas/annTypes'
 import { skeletonEdges } from '../canvas/geometryDraw'
+
+export type { DetectOptions, DetectedObject }
 
 function rasterize(img: HTMLImageElement, maxSide: number) {
   const scale = Math.min(1, maxSide / Math.max(img.width, img.height, 1))
@@ -19,36 +23,6 @@ function colorDist(data: Uint8ClampedArray, i: number, r: number, g: number, b: 
   const dg = data[i + 1] - g
   const db = data[i + 2] - b
   return Math.sqrt(dr * dr + dg * dg + db * db)
-}
-
-function floodFill(image: ImageData, sx: number, sy: number, tolerance: number) {
-  const { width: w, height: h, data } = image
-  const start = (Math.round(sy) * w + Math.round(sx)) * 4
-  const tr = data[start]
-  const tg = data[start + 1]
-  const tb = data[start + 2]
-  const seen = new Uint8Array(w * h)
-  const mask = new Uint8Array(w * h)
-  const q = [Math.round(sx) + Math.round(sy) * w]
-  seen[q[0]] = 1
-  let head = 0
-  const max = w * h
-  while (head < q.length && q.length < max) {
-    const i = q[head++]
-    const x = i % w
-    const y = (i / w) | 0
-    const pix = i * 4
-    if (colorDist(data, pix, tr, tg, tb) > tolerance) continue
-    mask[i] = 1
-    const neigh = [i - 1, i + 1, i - w, i + w]
-    const ok = [x > 0, x < w - 1, y > 0, y < h - 1]
-    for (let n = 0; n < 4; n++) {
-      if (!ok[n] || seen[neigh[n]]) continue
-      seen[neigh[n]] = 1
-      q.push(neigh[n])
-    }
-  }
-  return mask
 }
 
 function rdp(points: Point[], epsilon: number): Point[] {
@@ -136,15 +110,141 @@ function connectedBoxes(mask: Uint8Array, w: number, h: number, scale: number, m
   return boxes.slice(0, 24)
 }
 
-export async function segmentAt(img: HTMLImageElement, point: Point, tolerance = 32) {
-  const { data, w, h, scale } = rasterize(img, 360)
-  const sx = Math.max(0, Math.min(w - 1, Math.round(point.x * scale)))
-  const sy = Math.max(0, Math.min(h - 1, Math.round(point.y * scale)))
-  const mask = floodFill(data, sx, sy, tolerance)
+function edgeAwareGrow(
+  image: ImageData,
+  seeds: { x: number; y: number }[],
+  negative: { x: number; y: number }[],
+  tolerance: number,
+) {
+  const { width: w, height: h, data } = image
+  const lum = new Float32Array(w * h)
+  for (let i = 0; i < w * h; i++) {
+    const o = i * 4
+    lum[i] = 0.299 * data[o] + 0.587 * data[o + 1] + 0.114 * data[o + 2]
+  }
+  const grad = new Float32Array(w * h)
+  for (let y = 1; y < h - 1; y++) {
+    for (let x = 1; x < w - 1; x++) {
+      const i = y * w + x
+      grad[i] = Math.hypot(lum[i + 1] - lum[i - 1], lum[i + w] - lum[i - w])
+    }
+  }
+
+  const negBarrier = new Uint8Array(w * h)
+  for (const pt of negative) {
+    const cx = Math.round(pt.x)
+    const cy = Math.round(pt.y)
+    const r = 14
+    for (let y = Math.max(0, cy - r); y <= Math.min(h - 1, cy + r); y++) {
+      for (let x = Math.max(0, cx - r); x <= Math.min(w - 1, cx + r); x++) {
+        if ((x - cx) ** 2 + (y - cy) ** 2 <= r * r) negBarrier[y * w + x] = 1
+      }
+    }
+  }
+
+  const seedColors = seeds.map((s) => {
+    const sx = Math.max(0, Math.min(w - 1, Math.round(s.x)))
+    const sy = Math.max(0, Math.min(h - 1, Math.round(s.y)))
+    const o = (sy * w + sx) * 4
+    return { r: data[o], g: data[o + 1], b: data[o + 2] }
+  })
+  const avg = seedColors.reduce(
+    (acc, c) => ({ r: acc.r + c.r, g: acc.g + c.g, b: acc.b + c.b }),
+    { r: 0, g: 0, b: 0 },
+  )
+  avg.r /= Math.max(1, seedColors.length)
+  avg.g /= Math.max(1, seedColors.length)
+  avg.b /= Math.max(1, seedColors.length)
+
+  const mask = new Uint8Array(w * h)
+  const seen = new Uint8Array(w * h)
+  const q: number[] = []
+  for (const s of seeds) {
+    const sx = Math.max(0, Math.min(w - 1, Math.round(s.x)))
+    const sy = Math.max(0, Math.min(h - 1, Math.round(s.y)))
+    const i = sy * w + sx
+    if (negBarrier[i]) continue
+    seen[i] = 1
+    q.push(i)
+  }
+
+  let head = 0
+  const max = w * h
+  while (head < q.length && q.length < max) {
+    const i = q[head++]
+    const x = i % w
+    const y = (i / w) | 0
+    const pix = i * 4
+    const edgePenalty = grad[i] > 22 ? tolerance * 0.55 : 0
+    if (colorDist(data, pix, avg.r, avg.g, avg.b) > tolerance + edgePenalty) continue
+    mask[i] = 1
+    const neigh = [i - 1, i + 1, i - w, i + w]
+    const ok = [x > 0, x < w - 1, y > 0, y < h - 1]
+    for (let n = 0; n < 4; n++) {
+      if (!ok[n] || seen[neigh[n]] || negBarrier[neigh[n]]) continue
+      seen[neigh[n]] = 1
+      q.push(neigh[n])
+    }
+  }
+  return mask
+}
+
+export async function segmentWithPrompts(
+  img: HTMLImageElement,
+  positive: Point[],
+  negative: Point[] = [],
+  tolerance = 36,
+  model = 'mobile_sam',
+) {
+  if (!positive.length) return []
+  try {
+    const result = await inferenceService.segment(img, positive, negative, model)
+    if (result.points.length >= 3) {
+      return result.points.map((p) => ({ x: p.x, y: p.y }))
+    }
+  } catch (err) {
+    console.warn('[segment] SAM unavailable, using on-device fallback', err)
+  }
+  const { data, w, h, scale } = rasterize(img, 480)
+  const pos = positive.map((p) => ({
+    x: Math.max(0, Math.min(w - 1, Math.round(p.x * scale))),
+    y: Math.max(0, Math.min(h - 1, Math.round(p.y * scale))),
+  }))
+  const neg = negative.map((p) => ({
+    x: Math.max(0, Math.min(w - 1, Math.round(p.x * scale))),
+    y: Math.max(0, Math.min(h - 1, Math.round(p.y * scale))),
+  }))
+  const mask = edgeAwareGrow(data, pos, neg, tolerance)
   return maskToPolygon(mask, w, h, scale)
 }
 
-export async function detectObjects(img: HTMLImageElement) {
+export async function segmentAt(img: HTMLImageElement, point: Point, tolerance = 32) {
+  return segmentWithPrompts(img, [point], [], tolerance)
+}
+
+export async function detectObjects(img: HTMLImageElement, opts: DetectOptions = {}) {
+  try {
+    const result = await inferenceService.detect(img, opts)
+    if (result.objects.length) {
+      return { objects: result.objects, engine: 'yolo' as const, model: result.model, output: result.output }
+    }
+  } catch (err) {
+    console.warn('[detect] pretrained model unavailable, using heuristic fallback', err)
+  }
+  const boxes = detectObjectsHeuristic(img)
+  return {
+    objects: boxes.map((b) => ({
+      class_name: 'Object',
+      confidence: 0,
+      tool_type: 'bbox',
+      geometry: { ...b, rotation: 0 },
+    })),
+    engine: 'heuristic' as const,
+    output: opts.output ?? 'bbox',
+  }
+}
+
+function detectObjectsHeuristic(img: HTMLImageElement) {
   const { data, w, h, scale } = rasterize(img, 240)
   const px = data.data
   let lumSum = 0
@@ -188,6 +288,29 @@ const POSE_TEMPLATE: Point[] = [
   { x: 0.4, y: 0.96 },
   { x: 0.6, y: 0.96 },
 ]
+
+export async function estimatePose(img: HTMLImageElement, point: Point, model = 'yolov8n-pose') {
+  try {
+    const result = await inferenceService.pose(img, point, model)
+    if (result.geometry?.points) {
+      const g = result.geometry as {
+        points: Point[]
+        edges?: [number, number][]
+        names?: string[]
+        visibility?: number[]
+      }
+      return {
+        points: g.points,
+        edges: g.edges || skeletonEdges(g.points.length),
+        names: g.names,
+        visibility: g.visibility,
+      }
+    }
+  } catch (err) {
+    console.warn('[pose] YOLO-pose unavailable, using template fallback', err)
+  }
+  return poseAt(point, img.naturalWidth || img.width, img.naturalHeight || img.height)
+}
 
 export function poseAt(point: Point, imageW: number, imageH: number) {
   const size = Math.max(80, Math.min(imageW, imageH) * 0.42)

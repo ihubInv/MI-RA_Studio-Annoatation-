@@ -86,6 +86,19 @@ class DatasetItemRead(BaseModel):
             return None
         return f"{settings.STORAGE_BASE_URL.rstrip('/')}/{self.thumbnail_path.lstrip('/')}"
 
+    @computed_field
+    @property
+    def preview_url(self) -> Optional[str]:
+        if not self.preview_path or (self.storage_path or "").startswith("local:"):
+            return None
+        return f"{settings.STORAGE_BASE_URL.rstrip('/')}/{self.preview_path.lstrip('/')}"
+
+    @computed_field
+    @property
+    def playback_url(self) -> Optional[str]:
+        """Proxy for annotation playback when available, else original."""
+        return self.preview_url or self.media_url
+
 
 class DatasetItemUpdate(BaseModel):
     status: Optional[ItemStatus] = None

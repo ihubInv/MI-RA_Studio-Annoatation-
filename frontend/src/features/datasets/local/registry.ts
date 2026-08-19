@@ -1,8 +1,10 @@
 import { datasetsService } from '@/services/datasets.service'
+import { isVideoPath } from '@/modules/video/constants'
 import { localDb } from './idb'
 import {
   ensurePermission,
   fileFromDirectory,
+  isMediaPath,
   mapPool,
   persistDirectoryHandle,
   persistZipHandle,
@@ -16,12 +18,31 @@ import {
   walkDirectory,
   type WalkedFile,
 } from './fsAccess'
-import { listZipImages, readZipEntry, zipFolderCount } from './zipLocal'
+import { listZipMedia, readZipEntry, zipFolderCount } from './zipLocal'
 
 export type LocalAccessState = 'ready' | 'permission' | 'missing' | 'unsupported'
 
-function guessMime(name: string) {
+function guessMime(name: string, modality: string = 'image') {
   const ext = name.split('.').pop()?.toLowerCase()
+  if (modality === 'video' || modality === 'multimodal') {
+    const videoMap: Record<string, string> = {
+      mp4: 'video/mp4',
+      m4v: 'video/x-m4v',
+      mov: 'video/quicktime',
+      avi: 'video/x-msvideo',
+      mkv: 'video/x-matroska',
+      webm: 'video/webm',
+      mpeg: 'video/mpeg',
+      mpg: 'video/mpeg',
+      wmv: 'video/x-ms-wmv',
+      flv: 'video/x-flv',
+      ts: 'video/mp2t',
+      mts: 'video/mp2t',
+      m2ts: 'video/mp2t',
+      '3gp': 'video/3gpp',
+    }
+    return videoMap[ext || ''] || 'video/mp4'
+  }
   const map: Record<string, string> = {
     jpg: 'image/jpeg',
     jpeg: 'image/jpeg',
@@ -66,6 +87,7 @@ async function registerBatch(
 
 export async function importLocalDirectory(
   datasetId: string,
+  modality: string = 'image',
   onProgress?: (pct: number, phase: string) => void,
 ) {
   const handle = await pickDirectory()
@@ -73,7 +95,7 @@ export async function importLocalDirectory(
   if (!ok) throw new Error('Folder permission was not granted')
   await persistDirectoryHandle(datasetId, handle)
   onProgress?.(12, 'Scanning folders in parallel…')
-  const files = await walkDirectory(handle)
+  const files = await walkDirectory(handle, '', modality)
   await localDb.putMeta({ datasetId, rootName: handle.name, kind: 'directory', fileCount: files.length })
   onProgress?.(28, `Indexing ${files.length.toLocaleString()} files…`)
   const created = await registerBatch(datasetId, files, handle.name, (done, total) => {
@@ -83,7 +105,7 @@ export async function importLocalDirectory(
   return { created, total: files.length, folders: new Set(files.map((f) => f.relativePath.split('/').slice(0, -1).join('/')).filter(Boolean)).size, rootName: handle.name }
 }
 
-export async function importLocalZip(datasetId: string, file?: File) {
+export async function importLocalZip(datasetId: string, modality: string = 'image', file?: File) {
   let zipFile = file
   let handle: FileSystemFileHandle | null = null
   if (!zipFile && 'showOpenFilePicker' in window) {
@@ -93,7 +115,7 @@ export async function importLocalZip(datasetId: string, file?: File) {
   }
   if (!zipFile) throw new Error('No ZIP selected')
   rememberSessionZip(datasetId, zipFile)
-  const entries = await listZipImages(zipFile)
+  const entries = await listZipMedia(zipFile, modality)
   await localDb.putMeta({
     datasetId,
     rootName: zipFile.name.replace(/\.zip$/i, ''),
@@ -107,7 +129,7 @@ export async function importLocalZip(datasetId: string, file?: File) {
       name: e.name,
       size: e.size,
       lastModified: e.lastModified,
-      type: guessMime(e.name),
+      type: guessMime(e.name, modality),
     })),
     zipFile.name.replace(/\.zip$/i, ''),
   )
@@ -120,8 +142,8 @@ export async function importLocalZip(datasetId: string, file?: File) {
   }
 }
 
-export async function importLocalFiles(datasetId: string, files: File[]) {
-  rememberSessionFiles(datasetId, files)
+export async function importLocalFiles(datasetId: string, files: File[], modality: string = 'image') {
+  rememberSessionFiles(datasetId, files, modality)
   const walked: WalkedFile[] = files
     .map((file) => {
       const rel = ((file as File & { webkitRelativePath?: string }).webkitRelativePath || file.name).replace(/\\/g, '/')
@@ -130,10 +152,10 @@ export async function importLocalFiles(datasetId: string, files: File[]) {
         name: file.name,
         size: file.size,
         lastModified: file.lastModified,
-        type: file.type || guessMime(file.name),
+        type: file.type || guessMime(file.name, modality),
       }
     })
-    .filter((f) => /\.(jpe?g|png|webp|bmp|gif|tif|tiff)$/i.test(f.name))
+    .filter((f) => isMediaPath(f.name, modality))
   await localDb.putMeta({ datasetId, rootName: 'files', kind: 'files', fileCount: walked.length })
   const created = await registerBatch(datasetId, walked, 'files')
   return { created, total: walked.length, folders: new Set(walked.map((f) => f.relativePath.split('/').slice(0, -1).join('/')).filter(Boolean)).size }
@@ -192,22 +214,75 @@ export async function thumbKey(datasetId: string, relativePath: string) {
   return `${datasetId}:${relativePath}`
 }
 
+async function thumbFromVideoBlob(blob: Blob): Promise<Blob> {
+  const url = URL.createObjectURL(blob)
+  const video = document.createElement('video')
+  video.muted = true
+  video.playsInline = true
+  video.preload = 'auto'
+  video.src = url
+  try {
+    await new Promise<void>((resolve, reject) => {
+      const timer = window.setTimeout(() => reject(new Error('Video thumbnail timeout')), 10000)
+      const fail = () => {
+        window.clearTimeout(timer)
+        reject(new Error('Video thumbnail failed'))
+      }
+      video.addEventListener('loadeddata', () => {
+        window.clearTimeout(timer)
+        resolve()
+      }, { once: true })
+      video.addEventListener('error', fail, { once: true })
+    })
+    const duration = Number.isFinite(video.duration) ? video.duration : 0
+    const seekTo = duration > 0.4 ? Math.min(1, duration * 0.08) : 0
+    if (seekTo > 0) {
+      await new Promise<void>((resolve) => {
+        const done = () => resolve()
+        video.addEventListener('seeked', done, { once: true })
+        video.currentTime = seekTo
+        window.setTimeout(done, 1500)
+      })
+    }
+    const w = video.videoWidth || 320
+    const h = video.videoHeight || 180
+    const scale = Math.min(1, 320 / Math.max(w, h))
+    const canvas = document.createElement('canvas')
+    canvas.width = Math.max(1, Math.round(w * scale))
+    canvas.height = Math.max(1, Math.round(h * scale))
+    const ctx = canvas.getContext('2d')
+    if (!ctx) throw new Error('Canvas unavailable')
+    ctx.drawImage(video, 0, 0, canvas.width, canvas.height)
+    return await new Promise((resolve, reject) => {
+      canvas.toBlob((b) => (b ? resolve(b) : reject(new Error('Failed to encode thumbnail'))), 'image/jpeg', 0.82)
+    })
+  } finally {
+    video.removeAttribute('src')
+    video.load()
+    URL.revokeObjectURL(url)
+  }
+}
+
+async function thumbFromImageBlob(blob: Blob): Promise<Blob> {
+  const bmp = await createImageBitmap(blob)
+  const scale = Math.min(1, 320 / Math.max(bmp.width, bmp.height))
+  const canvas = document.createElement('canvas')
+  canvas.width = Math.max(1, Math.round(bmp.width * scale))
+  canvas.height = Math.max(1, Math.round(bmp.height * scale))
+  const ctx = canvas.getContext('2d')
+  if (!ctx) return blob
+  ctx.drawImage(bmp, 0, 0, canvas.width, canvas.height)
+  bmp.close()
+  return new Promise((resolve) => canvas.toBlob((b) => resolve(b || blob), 'image/jpeg', 0.82))
+}
+
 export async function getOrCreateThumb(datasetId: string, relativePath: string): Promise<string | null> {
   const key = await thumbKey(datasetId, relativePath)
   const cached = await localDb.getThumb(key)
   if (cached) return URL.createObjectURL(cached)
   try {
     const blob = await getLocalBlob(datasetId, relativePath)
-    const bmp = await createImageBitmap(blob)
-    const scale = Math.min(1, 320 / Math.max(bmp.width, bmp.height))
-    const canvas = document.createElement('canvas')
-    canvas.width = Math.max(1, Math.round(bmp.width * scale))
-    canvas.height = Math.max(1, Math.round(bmp.height * scale))
-    const ctx = canvas.getContext('2d')
-    if (!ctx) return URL.createObjectURL(blob)
-    ctx.drawImage(bmp, 0, 0, canvas.width, canvas.height)
-    bmp.close()
-    const thumb: Blob = await new Promise((resolve) => canvas.toBlob((b) => resolve(b || blob), 'image/jpeg', 0.82))
+    const thumb = isVideoPath(relativePath) ? await thumbFromVideoBlob(blob) : await thumbFromImageBlob(blob)
     await localDb.putThumb(key, thumb)
     return URL.createObjectURL(thumb)
   } catch {

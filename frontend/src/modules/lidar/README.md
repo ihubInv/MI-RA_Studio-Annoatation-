@@ -1,5 +1,3 @@
-# LiDAR / 3D annotation module
-
 Not implemented yet. Point-cloud viewer and 3D cuboids belong here.
 
-The image studio cuboid tool is 2.5D on a photo only.
+RGB/LiDAR sync, BEV, cuboids, tracks, point selection, and segmentation are implemented in this module and used from the video studio (Phase 26).

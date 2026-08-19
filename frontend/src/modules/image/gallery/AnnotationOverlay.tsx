@@ -1,3 +1,5 @@
+import { rleToHullPoints, type RleMask } from '../canvas/maskRle'
+
 interface PreviewObject {
   id?: string
   class_name: string
@@ -13,6 +15,12 @@ interface Props {
 }
 
 function pointsOf(g: Record<string, unknown>): string {
+  const rle = g.rle as RleMask | undefined
+  if (rle?.counts?.length) {
+    return rleToHullPoints(rle)
+      .map((p) => `${p.x},${p.y}`)
+      .join(' ')
+  }
   const raw = g.points as unknown
   if (!Array.isArray(raw) || raw.length === 0) return ''
   if (typeof raw[0] === 'number') {

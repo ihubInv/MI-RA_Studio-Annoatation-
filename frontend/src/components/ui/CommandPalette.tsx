@@ -10,6 +10,7 @@ import {
   Pencil,
   Search,
   Send,
+  UserCircle,
 } from 'lucide-react'
 import { cn } from '@/utils/cn'
 
@@ -33,6 +34,7 @@ const BASE_COMMANDS: Omit<CommandItem, 'action'>[] = [
   { id: 'tasks', label: 'Open Tasks', group: 'Navigation', icon: <Pencil className="w-4 h-4" /> },
   { id: 'qa', label: 'Open QA Panel', group: 'Navigation', icon: <CheckSquare className="w-4 h-4" /> },
   { id: 'models', label: 'Open Models', group: 'Navigation', icon: <BrainCircuit className="w-4 h-4" /> },
+  { id: 'profile', label: 'Open Profile', group: 'Navigation', icon: <UserCircle className="w-4 h-4" /> },
   { id: 'bbox', label: 'Create Bounding Box', group: 'Annotation', icon: <BoxSelect className="w-4 h-4" /> },
   { id: 'objects', label: 'Show Objects Panel', group: 'Annotation', icon: <Layers className="w-4 h-4" /> },
   { id: 'export', label: 'Export Dataset', group: 'Actions', icon: <Send className="w-4 h-4" /> },
@@ -50,6 +52,7 @@ export function CommandPalette({ open, onClose, extraCommands = [] }: CommandPal
       tasks: () => navigate('/tasks'),
       qa: () => navigate('/qa'),
       models: () => navigate('/models'),
+      profile: () => navigate('/profile'),
       bbox: () => {},
       objects: () => {},
       export: () => {},
@@ -109,7 +112,7 @@ export function CommandPalette({ open, onClose, extraCommands = [] }: CommandPal
   return (
     <div className="fixed inset-0 z-[100] flex items-start justify-center pt-[12vh] px-4">
       <div className="absolute inset-0 bg-black/20 backdrop-blur-[1px]" onClick={onClose} />
-      <div className="relative w-full max-w-lg bg-white border border-border rounded-lg shadow-lg overflow-hidden fade-enter">
+      <div className="relative w-full max-w-lg mira-panel rounded-lg shadow-lg overflow-hidden fade-enter">
         <div className="flex items-center gap-2 px-3 border-b border-border">
           <Search className="w-4 h-4 text-muted-foreground shrink-0" />
           <input

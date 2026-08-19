@@ -55,6 +55,8 @@ export interface DatasetIndexItem {
 export interface ZipInspectReport {
   job_id: string
   valid_images: number
+  valid_videos?: number
+  valid_count?: number
   folder_count: number
   folders: string[]
   duplicate_files: string[]
@@ -65,6 +67,12 @@ export interface ZipInspectReport {
   invalid_paths: string[]
   empty_folders: string[]
   corrupted_images: string[]
+  corrupted_videos?: string[]
+}
+
+export interface UploadReject {
+  path: string
+  reason: string
 }
 
 export const STATUS_META: Record<string, { label: string; dot: string; text: string }> = {

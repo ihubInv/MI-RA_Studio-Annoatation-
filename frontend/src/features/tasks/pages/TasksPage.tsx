@@ -65,7 +65,7 @@ export function TasksPage() {
           ))}
         </div>
       ) : filteredTasks.length === 0 ? (
-        <div className="text-center py-12 bg-card border border-border rounded-xl">
+        <div className="text-center py-12 mira-panel">
           <Pencil className="w-12 h-12 text-muted-foreground mx-auto mb-3 opacity-50" />
           <h3 className="text-base font-semibold">No assigned tasks</h3>
           <p className="text-sm text-muted-foreground mt-1 max-w-sm mx-auto">
@@ -80,7 +80,7 @@ export function TasksPage() {
             return (
               <div
                 key={task.id}
-                className="bg-card border border-border rounded-xl p-4 flex items-center justify-between hover:border-primary/50 transition-colors"
+                className="mira-panel p-4 flex items-center justify-between hover:border-primary/50 transition-colors"
               >
                 <div className="flex items-center gap-4">
                   <div className="w-10 h-10 rounded-lg bg-muted flex items-center justify-center">

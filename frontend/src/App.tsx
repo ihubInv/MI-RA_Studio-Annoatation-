@@ -4,12 +4,16 @@ import { useAuthStore } from '@/stores/authStore'
 import { AppShell } from '@/components/layout/AppShell'
 import { LoginPage } from '@/features/auth/pages/LoginPage'
 import { RegisterPage } from '@/features/auth/pages/RegisterPage'
+import { ProfilePage } from '@/features/auth/pages/ProfilePage'
 import { DashboardPage } from '@/features/dashboard/pages/DashboardPage'
 import { ProjectsPage } from '@/features/projects/pages/ProjectsPage'
 import { DatasetsPage } from '@/features/datasets/pages/DatasetsPage'
 import { DatasetItemsPage } from '@/features/datasets/pages/DatasetItemsPage'
 import { TasksPage } from '@/features/tasks/pages/TasksPage'
 import { ImageStudioPage } from '@/modules/image'
+import { VideoStudioPage } from '@/modules/video'
+import { VideoAnalyticsPage } from '@/modules/video/pages/VideoAnalyticsPage'
+import { VideoQaDashboardPage } from '@/modules/video/pages/VideoQaDashboardPage'
 import { listenOnlineFlush, flushSyncQueue } from '@/features/datasets/local/syncQueue'
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
@@ -27,7 +31,15 @@ export default function App() {
       {/* Public */}
       <Route path="/login" element={<LoginPage />} />
       <Route path="/register" element={<RegisterPage />} />
-      {/* Image studio (modules/image). Video will use /annotate/video/:itemId */}
+      {/* Image studio (modules/image). Video uses /annotate/video/:itemId */}
+      <Route
+        path="/annotate/video/:itemId"
+        element={
+          <ProtectedRoute>
+            <VideoStudioPage />
+          </ProtectedRoute>
+        }
+      />
       <Route
         path="/annotate/:itemId"
         element={
@@ -64,10 +76,14 @@ export default function App() {
         <Route path="explore" element={<Navigate to="/datasets" replace />} />
 
         {/* QA */}
-        <Route path="qa" element={<div className="p-6">Quality Assurance — Phase 1</div>} />
+        <Route path="qa" element={<VideoQaDashboardPage />} />
+        <Route path="analytics" element={<VideoAnalyticsPage />} />
 
-        {/* Analytics */}
-        <Route path="analytics" element={<div className="p-6">Analytics — Phase 4</div>} />
+        {/* Models */}
+        <Route path="models" element={<div className="p-6">Models — coming next</div>} />
+
+        {/* Profile */}
+        <Route path="profile" element={<ProfilePage />} />
 
         {/* Admin */}
         <Route path="admin" element={<div className="p-6">Administration</div>} />

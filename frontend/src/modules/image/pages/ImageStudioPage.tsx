@@ -28,14 +28,15 @@ import { StorageBadge } from '@/features/datasets/components/StorageBadge'
 import { STATUS_META } from '@/features/datasets/datasetTree.types'
 import { getLocalBlob, reconnectDirectory } from '@/features/datasets/local/registry'
 import { saveAnnotationLocalFirst, type SyncState } from '@/features/datasets/local/syncQueue'
-import { detectObjects, poseAt, segmentAt } from '../ai/assist'
+import { detectObjects, estimatePose, poseAt, segmentAt, segmentWithPrompts } from '../ai/assist'
+import { inferenceService, type DetectOutput, type InferenceModel } from '../api/inference.service'
 import { DEFAULT_SHORTCUTS, TOOL_BY_ID } from '../tools/registry'
 import { loadLabelSchema, saveLabelSchema, type LabelSchema } from '../schema/labelStore'
 import { schemasService } from '../api/schemas.service'
 import { cloneShapes, dist, type AnnShape, type Point } from '../canvas/annTypes'
 import { AnnotationShapes } from '../canvas/AnnotationShapes'
 import { DraftOverlay } from '../canvas/DraftOverlay'
-import { orMasks, strokeToMaskGeometry } from '../canvas/maskRle'
+import { maskIsEmpty, mergeManyMasks, polygonToMaskGeometry, rleToHullPoints, splitMaskByLine, strokeToMaskGeometry } from '../canvas/maskRle'
 import {
   AUTO_POINTS,
   CLOSED_TYPES,
@@ -52,6 +53,12 @@ import { ClassManager } from '../panels/ClassManager'
 const ZOOM_PRESETS = [0.25, 0.5, 1, 2, 4]
 const MIN_ZOOM = 0.05
 const MAX_ZOOM = 16
+const DEFAULT_DETECT_MODELS: { id: string; label: string }[] = [
+  { id: 'yolov8n', label: 'YOLOv8 Nano (bbox)' },
+  { id: 'yolov8s', label: 'YOLOv8 Small (bbox)' },
+  { id: 'yolov8n-seg', label: 'YOLOv8 Nano Seg' },
+  { id: 'yolov8s-seg', label: 'YOLOv8 Small Seg' },
+]
 
 function hitShapeId(e: { target?: { name?: () => string } }, shapes: AnnShape[]) {
   const named = typeof e.target?.name === 'function' ? e.target.name() : ''
@@ -85,6 +92,36 @@ function nextTrackId(shapes: AnnShape[]) {
     if (Number.isFinite(n) && n > max) max = n
   }
   return `T${max + 1}`
+}
+
+function shapeAtPoint(shapes: AnnShape[], pt: Point): AnnShape | null {
+  for (let i = shapes.length - 1; i >= 0; i--) {
+    const s = shapes[i]
+    if (s.visible === false) continue
+    const g = s.geometry
+    const pts = asPoints(g.points)
+    if (pts.length >= 3) {
+      let minX = Infinity
+      let minY = Infinity
+      let maxX = -Infinity
+      let maxY = -Infinity
+      for (const p of pts) {
+        minX = Math.min(minX, p.x)
+        minY = Math.min(minY, p.y)
+        maxX = Math.max(maxX, p.x)
+        maxY = Math.max(maxY, p.y)
+      }
+      if (pt.x >= minX && pt.x <= maxX && pt.y >= minY && pt.y <= maxY) return s
+    }
+    if (g.x != null && g.w != null && g.y != null && g.h != null) {
+      const x = Number(g.x)
+      const y = Number(g.y)
+      const w = Number(g.w)
+      const h = Number(g.h)
+      if (pt.x >= x && pt.x <= x + w && pt.y >= y && pt.y <= y + h) return s
+    }
+  }
+  return null
 }
 
 export function ImageStudioPage() {
@@ -135,6 +172,7 @@ export function ImageStudioPage() {
   const [activeClass, setActiveClass] = useState(enabledClasses[0]?.name || 'Object')
   const [shapes, setShapes] = useState<AnnShape[]>([])
   const [selectedId, setSelectedId] = useState<string | null>(null)
+  const [selectedIds, setSelectedIds] = useState<string[]>([])
   const [annotationId, setAnnotationId] = useState<string | null>(null)
   const [status, setStatus] = useState('idle')
   const [syncState, setSyncState] = useState<SyncState | 'idle'>('idle')
@@ -143,6 +181,13 @@ export function ImageStudioPage() {
   const [dirty, setDirty] = useState(false)
   const [showAiPanel, setShowAiPanel] = useState(false)
   const [aiBusy, setAiBusy] = useState(false)
+  const [segPrompts, setSegPrompts] = useState<{ positive: Point[]; negative: Point[] }>({ positive: [], negative: [] })
+  const [detectOutput, setDetectOutput] = useState<DetectOutput>('bbox')
+  const [detectModel, setDetectModel] = useState('yolov8n')
+  const [detectConfidence, setDetectConfidence] = useState(0.25)
+  const [detectClasses, setDetectClasses] = useState('')
+  const [inferenceAvailable, setInferenceAvailable] = useState<boolean | null>(null)
+  const [inferenceModels, setInferenceModels] = useState<InferenceModel[]>([])
   const [aiStatus, setAiStatus] = useState('')
   const [showClassManager, setShowClassManager] = useState(false)
   const [showLabels, setShowLabels] = useState(true)
@@ -189,6 +234,30 @@ export function ImageStudioPage() {
   const linkFrom = useRef<string | null>(null)
   const poseDrag = useRef<{ id: string; index: number } | null>(null)
   const shapesRef = useRef<AnnShape[]>([])
+  const eraserTargetRef = useRef<string | null>(null)
+  const segDraftId = useRef<string | null>(null)
+  const splitLineStart = useRef<Point | null>(null)
+  const [inspectInfo, setInspectInfo] = useState<{ class_name: string; tool_type: string; confidence?: number } | null>(null)
+  const [segModel, setSegModel] = useState('mobile_sam')
+  const [poseModel, setPoseModel] = useState('yolov8n-pose')
+
+  const selectShape = useCallback((id: string | null, opts?: { additive?: boolean }) => {
+    if (!id) {
+      setSelectedId(null)
+      setSelectedIds([])
+      return
+    }
+    if (opts?.additive) {
+      setSelectedIds((prev) => {
+        const next = prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]
+        setSelectedId(id)
+        return next.length ? next : [id]
+      })
+    } else {
+      setSelectedId(id)
+      setSelectedIds([id])
+    }
+  }, [])
 
   const { data: dataset } = useQuery({
     queryKey: ['dataset', item?.dataset_id],
@@ -349,6 +418,54 @@ export function ImageStudioPage() {
     setDirty(true)
   }
 
+  const runSegmentPrompts = useCallback(
+    async (positive: Point[], negative: Point[]) => {
+      if (!image || aiBusy || !positive.length) return
+      setShowAiPanel(true)
+      setAiBusy(true)
+      setAiStatus('Refining mask…')
+      try {
+        const points = await segmentWithPrompts(image, positive, negative, 38, segModel)
+        if (points.length < 3) {
+          setAiStatus('No region found. Add more foreground clicks or try a different spot.')
+          return
+        }
+        const draftId = segDraftId.current
+        if (draftId) {
+          pushHistory(
+            shapes.map((s) =>
+              s.clientId === draftId ? { ...s, geometry: { points, rle: undefined } } : s,
+            ),
+          )
+        } else {
+          const id = crypto.randomUUID()
+          segDraftId.current = id
+          pushHistory([
+            ...shapes,
+            {
+              clientId: id,
+              class_name: activeClass,
+              tool_type: 'instance_seg',
+              geometry: { points },
+              attributes: { source: 'ai_segment' },
+              visible: true,
+              locked: false,
+            },
+          ])
+          selectShape(id)
+        }
+        setAiStatus(
+          `Segment updated · ${positive.length} include · ${negative.length} exclude click${negative.length === 1 ? '' : 's'}. Press Enter to finish.`,
+        )
+      } catch (err) {
+        setAiStatus(err instanceof Error ? err.message : 'Segmentation failed')
+      } finally {
+        setAiBusy(false)
+      }
+    },
+    [image, aiBusy, shapes, activeClass, selectShape, segModel],
+  )
+
   const runAi = async (kind: string, pt?: Point) => {
     if (!image || aiBusy) return
     setShowAiPanel(true)
@@ -366,34 +483,80 @@ export function ImageStudioPage() {
         locked: false,
       })
       if (kind === 'magic_wand' || kind === 'ai_segment') {
-        const points = await segmentAt(image, origin, kind === 'ai_segment' ? 48 : 30)
+        const positive = kind === 'ai_segment' && segPrompts.positive.length ? segPrompts.positive : pt ? [pt] : []
+        const negative = kind === 'ai_segment' ? segPrompts.negative : []
+        if (!positive.length) {
+          setAiStatus('Click the object on the image.')
+          return
+        }
+        if (kind === 'ai_segment') {
+          await runSegmentPrompts(positive, negative)
+          return
+        }
+        const points = await segmentAt(image, positive[0], 30)
         if (points.length < 3) {
           setAiStatus('No region found. Click a more uniform area of the object.')
           return
         }
         pushHistory([
           ...shapes,
-          make(kind === 'ai_segment' ? 'instance_seg' : 'polygon_mask', { points }),
+          make('polygon_mask', { points }),
         ])
         setAiStatus('Mask added. Adjust with Select or Eraser.')
         return
       }
       if (kind === 'ai_detect') {
-        const boxes = await detectObjects(image)
-        if (!boxes.length) {
-          setAiStatus('No objects found. Try Magic Wand on a specific region.')
+        const classFilter = detectClasses
+          .split(',')
+          .map((s) => s.trim())
+          .filter(Boolean)
+        const { objects, engine, model } = await detectObjects(image, {
+          output: detectOutput,
+          model: detectModel,
+          confidence: detectConfidence,
+          classes: classFilter.length ? classFilter : undefined,
+        })
+        if (!objects.length) {
+          setAiStatus(
+            engine === 'yolo'
+              ? 'No objects matched. Lower confidence, change class filter, or try polygon output.'
+              : 'No objects found. Install ML stack (requirements-ml.txt) for YOLO detection.',
+          )
           return
         }
         pushHistory([
           ...shapes,
-          ...boxes.map((b) => make('bbox', { ...b, rotation: 0 })),
+          ...objects.map((o) => ({
+            clientId: crypto.randomUUID(),
+            class_name: o.class_name || activeClass,
+            tool_type: o.tool_type,
+            geometry: o.geometry,
+            attributes: {
+              source: 'ai_detect',
+              confidence: o.confidence,
+              engine,
+              model,
+            },
+            visible: true,
+            locked: false,
+          })),
         ])
-        setAiStatus(`Detected ${boxes.length} region${boxes.length === 1 ? '' : 's'}.`)
+        setAiStatus(
+          `Detected ${objects.length} object${objects.length === 1 ? '' : 's'} (${engine}${model ? ` · ${model}` : ''}).`,
+        )
         return
       }
       if (kind === 'ai_pose') {
-        pushHistory([...shapes, make('skeleton', poseAt(origin, natural.w, natural.h))])
-        setAiStatus('Pose placed. Drag to align joints.')
+        const pose = await estimatePose(image, origin, poseModel)
+        pushHistory([
+          ...shapes,
+          make('skeleton', {
+            ...pose,
+            names: 'names' in pose && pose.names ? pose.names : COCO_KEYPOINT_NAMES,
+          }),
+        ])
+        setAiStatus('Pose detected. Drag joints with Pose Edit to refine.')
+        return
       }
     } catch (err) {
       setAiStatus(err instanceof Error ? err.message : 'AI assist failed')
@@ -401,6 +564,19 @@ export function ImageStudioPage() {
       setAiBusy(false)
     }
   }
+
+  useEffect(() => {
+    inferenceService
+      .listModels()
+      .then((res) => {
+        setInferenceAvailable(res.available)
+        setInferenceModels(res.items)
+        if (res.items.length) {
+          setDetectModel((prev) => (res.items.some((m) => m.id === prev) ? prev : res.default_model))
+        }
+      })
+      .catch(() => setInferenceAvailable(false))
+  }, [])
 
   useEffect(() => {
     if (!itemId) return
@@ -501,9 +677,20 @@ export function ImageStudioPage() {
       const target =
         shapes.find((s) => s.clientId === selectedId && (MASK_TYPES.has(s.tool_type) || s.geometry.rle)) ||
         [...shapes].reverse().find((s) => MASK_TYPES.has(s.tool_type) || s.geometry.rle)
-      const geometry = strokeToMaskGeometry(pts, natural.w, natural.h, 16, target
-        ? { rle: target.geometry.rle as { counts: number[]; size: [number, number] }, points: target.geometry.points, tool_type: target.tool_type }
-        : undefined)
+      const geometry = strokeToMaskGeometry(
+        pts,
+        natural.w,
+        natural.h,
+        16,
+        target
+          ? {
+              rle: target.geometry.rle as { counts: number[]; size: [number, number] },
+              points: target.geometry.points,
+              tool_type: target.tool_type,
+            }
+          : undefined,
+        'add',
+      )
       if (target) {
         pushHistory(
           shapes.map((s) => (s.clientId === target.clientId ? { ...s, geometry: { ...s.geometry, ...geometry } } : s)),
@@ -524,10 +711,72 @@ export function ImageStudioPage() {
       setDraftPoints([])
       return true
     }
+    if (tool === 'eraser') {
+      const targetId = eraserTargetRef.current
+      eraserTargetRef.current = null
+      const target =
+        shapes.find(
+          (s) =>
+            s.clientId === targetId &&
+            (MASK_TYPES.has(s.tool_type) || s.geometry.rle || CLOSED_TYPES.has(s.tool_type)),
+        ) ||
+        shapes.find((s) => s.clientId === selectedId && (MASK_TYPES.has(s.tool_type) || s.geometry.rle || CLOSED_TYPES.has(s.tool_type)))
+      if (!target || pts.length < 2) {
+        setDraftPoints([])
+        return true
+      }
+      const geometry = strokeToMaskGeometry(
+        pts,
+        natural.w,
+        natural.h,
+        16,
+        {
+          rle: target.geometry.rle as { counts: number[]; size: [number, number] } | undefined,
+          points: target.geometry.points,
+          tool_type: target.tool_type,
+        },
+        'subtract',
+      )
+      if (maskIsEmpty('rle' in geometry ? geometry.rle : undefined)) {
+        pushHistory(shapes.filter((s) => s.clientId !== target.clientId))
+        selectShape(null)
+      } else {
+        pushHistory(
+          shapes.map((s) =>
+            s.clientId === target.clientId ? { ...s, geometry: { ...s.geometry, ...geometry } } : s,
+          ),
+        )
+      }
+      setDraftPoints([])
+      return true
+    }
     const geometry =
       tool === 'brush'
         ? strokeToMaskGeometry(pts, natural.w, natural.h, 16)
-        : buildPointGeometry(tool, pts)
+        : tool === 'semantic_seg' && closed
+          ? polygonToMaskGeometry(pts, natural.w, natural.h)
+          : buildPointGeometry(tool, pts)
+
+    if (tool === 'semantic_seg') {
+      const existing = shapes.find((s) => s.tool_type === 'semantic_seg' && s.class_name === activeClass)
+      const newRle = (geometry as { rle?: { counts: number[]; size: [number, number] } }).rle
+      const oldRle = existing?.geometry?.rle as { counts: number[]; size: [number, number] } | undefined
+      if (existing && newRle && oldRle?.counts) {
+        const merged = mergeManyMasks([oldRle, newRle])
+        if (merged) {
+          pushHistory(
+            shapes.map((s) =>
+              s.clientId === existing.clientId
+                ? { ...s, geometry: { ...s.geometry, rle: merged, points: rleToHullPoints(merged) } }
+                : s,
+            ),
+          )
+          setDraftPoints([])
+          return true
+        }
+      }
+    }
+
     pushHistory([
       ...shapes,
       {
@@ -541,7 +790,7 @@ export function ImageStudioPage() {
     ])
     setDraftPoints([])
     return true
-  }, [tool, shapes, activeClass, natural.w, natural.h, selectedId])
+  }, [tool, shapes, activeClass, natural.w, natural.h, selectedId, selectShape])
 
   const finishPoints = (_closed?: boolean, _type?: string) => {
     completeShape()
@@ -568,22 +817,46 @@ export function ImageStudioPage() {
       } else if (e.key === 'Delete' || e.key === 'Backspace') {
         if (draftPointsRef.current.length) {
           setDraftPoints((pts) => pts.slice(0, -1))
+        } else if (selectedIds.length > 1) {
+          const drop = new Set(selectedIds)
+          pushHistory(shapes.filter((s) => !drop.has(s.clientId)))
+          selectShape(null)
         } else if (selectedId) {
           pushHistory(shapes.filter((s) => s.clientId !== selectedId))
-          setSelectedId(null)
+          selectShape(null)
         }
-      } else if (e.key === 'Enter' || (e.key.toLowerCase() === 's' && !e.ctrlKey && !e.metaKey)) {
+      } else if (e.key === 'Enter') {
+        if (segDraftId.current) {
+          segDraftId.current = null
+          setSegPrompts({ positive: [], negative: [] })
+          setAiStatus('Mask committed.')
+          e.preventDefault()
+          return
+        }
         if (draftPointsRef.current.length) {
           e.preventDefault()
           completeShape()
           return
         }
-        if (e.key === 'Enter') return
+      } else if (e.key.toLowerCase() === 's' && !e.ctrlKey && !e.metaKey) {
+        if (draftPointsRef.current.length) {
+          e.preventDefault()
+          completeShape()
+          return
+        }
       } else if (e.key === 'Escape') {
         setDraftPoints([])
         drawing.current = null
         setDraftRect(null)
-        setSelectedId(null)
+        eraserTargetRef.current = null
+        if (segDraftId.current) {
+          const draftId = segDraftId.current
+          segDraftId.current = null
+          pushHistory(shapes.filter((s) => s.clientId !== draftId))
+          setSegPrompts({ positive: [], negative: [] })
+          setAiStatus('Segment cancelled.')
+        }
+        selectShape(null)
       } else if (e.key === 'f' && !e.ctrlKey) fitToScreen()
       else if (e.key === 'g' || e.key === 'G') setShowGrid((v) => !v)
       else if (!e.ctrlKey && !e.metaKey && !draftPointsRef.current.length && (e.key === '[' || e.key === ']')) {
@@ -617,7 +890,7 @@ export function ImageStudioPage() {
     window.removeEventListener('keydown', onKey)
     window.removeEventListener('keyup', onUp)
   }
-  }, [shapes, selectedId, save, drawMode, enabledClasses, fitToScreen, completeShape, navIndex, itemId, folderParam, navigate])
+  }, [shapes, selectedId, selectedIds, selectShape, save, drawMode, enabledClasses, fitToScreen, completeShape, navIndex, itemId, folderParam, navigate])
 
   const zoomAt = (pointer: Point, nextScale: number) => {
     const clamped = Math.max(MIN_ZOOM, Math.min(MAX_ZOOM, nextScale))
@@ -650,6 +923,15 @@ export function ImageStudioPage() {
     if (spaceHeld.current || drawMode === 'pan') {
       panning.current = true
       panStart.current = { x: pos.x, y: pos.y, sx: stagePos.x, sy: stagePos.y }
+      return
+    }
+    if (tool === 'zoom') {
+      zoomAt(pos, Math.min(MAX_ZOOM, scale * (e.evt.altKey ? 1 / 1.5 : 1.5)))
+      return
+    }
+    if (tool === 'pointer') {
+      const id = hitShapeId(e, shapes)
+      if (id) selectShape(id, { additive: e.evt.ctrlKey || e.evt.metaKey })
       return
     }
 
@@ -698,34 +980,67 @@ export function ImageStudioPage() {
       return
     }
     if (tool === 'mask_merge') {
-      const masks = shapes.filter((s) => CLOSED_TYPES.has(s.tool_type) || s.geometry.rle)
+      const masks = shapes.filter(
+        (s) =>
+          selectedIds.includes(s.clientId) &&
+          (CLOSED_TYPES.has(s.tool_type) || Boolean(s.geometry.rle)),
+      )
       if (masks.length < 2) return
-      const a = masks[masks.length - 2]
-      const b = masks[masks.length - 1]
-      const ar = a.geometry.rle as { counts: number[]; size: [number, number] } | undefined
-      const br = b.geometry.rle as { counts: number[]; size: [number, number] } | undefined
-      const mergedRle = ar?.counts && br?.counts ? orMasks(ar, br) : null
-      const pts = convexHull([...asPoints(a.geometry.points), ...asPoints(b.geometry.points)])
+      const rles = masks
+        .map((m) => m.geometry.rle as { counts: number[]; size: [number, number] } | undefined)
+        .filter((r): r is { counts: number[]; size: [number, number] } => Boolean(r?.counts?.length))
+      const mergedRle = rles.length >= 2 ? mergeManyMasks(rles) : rles[0] || null
+      const pts = mergedRle ? rleToHullPoints(mergedRle) : convexHull(masks.flatMap((m) => asPoints(m.geometry.points)))
+      const mergeIds = new Set(masks.map((m) => m.clientId))
+      const mergedId = crypto.randomUUID()
       pushHistory([
-        ...shapes.filter((s) => s.clientId !== a.clientId && s.clientId !== b.clientId),
+        ...shapes.filter((s) => !mergeIds.has(s.clientId)),
         {
-          ...a,
-          clientId: crypto.randomUUID(),
-          geometry: { ...a.geometry, points: pts, ...(mergedRle ? { rle: mergedRle } : {}) },
+          ...masks[0],
+          clientId: mergedId,
+          geometry: {
+            ...masks[0].geometry,
+            points: pts.length >= 3 ? pts : convexHull(masks.flatMap((m) => asPoints(m.geometry.points))),
+            ...(mergedRle ? { rle: mergedRle } : {}),
+          },
         },
       ])
+      selectShape(mergedId)
       return
     }
     if (tool === 'mask_split') {
-      const mask = [...shapes].reverse().find((s) => CLOSED_TYPES.has(s.tool_type) || s.geometry.rle)
+      const mask =
+        shapes.find((s) => s.clientId === selectedId && (CLOSED_TYPES.has(s.tool_type) || s.geometry.rle)) ||
+        [...shapes].reverse().find((s) => CLOSED_TYPES.has(s.tool_type) || s.geometry.rle)
       if (!mask) return
-      const pts = asPoints(mask.geometry.points)
-      const mid = Math.floor(pts.length / 2)
-      if (mid < 3 || pts.length - mid < 3) return
+      if (!splitLineStart.current) {
+        splitLineStart.current = imgPt
+        setDraftPoints([imgPt])
+        setAiStatus('Mask split: click the second point on the cut line.')
+        return
+      }
+      const [partA, partB] = splitMaskByLine(
+        { rle: mask.geometry.rle as { counts: number[]; size: [number, number] } | undefined, points: mask.geometry.points },
+        splitLineStart.current,
+        imgPt,
+        natural.w,
+        natural.h,
+      )
+      splitLineStart.current = null
+      setDraftPoints([])
+      if (!partA || !partB) {
+        setAiStatus('Split failed — draw a line that crosses the mask.')
+        return
+      }
       pushHistory([
         ...shapes.filter((s) => s.clientId !== mask.clientId),
-        { ...mask, clientId: crypto.randomUUID(), geometry: { ...mask.geometry, points: pts.slice(0, mid + 1), rle: undefined } },
-        { ...mask, clientId: crypto.randomUUID(), instance_id: crypto.randomUUID(), geometry: { ...mask.geometry, points: pts.slice(mid), rle: undefined } },
+        { ...mask, clientId: crypto.randomUUID(), geometry: { ...mask.geometry, points: partA.points, rle: partA.rle } },
+        {
+          ...mask,
+          clientId: crypto.randomUUID(),
+          instance_id: crypto.randomUUID(),
+          geometry: { ...mask.geometry, points: partB.points, rle: partB.rle },
+        },
       ])
       return
     }
@@ -734,7 +1049,7 @@ export function ImageStudioPage() {
       if (!id) return
       if (!linkFrom.current || linkFrom.current === id) {
         linkFrom.current = id
-        setSelectedId(id)
+        selectShape(id)
         return
       }
       const parent = shapes.find((s) => s.clientId === linkFrom.current)
@@ -754,7 +1069,7 @@ export function ImageStudioPage() {
         ),
       )
       linkFrom.current = null
-      setSelectedId(childId)
+      selectShape(childId)
       return
     }
     if (tool === 'track_id') {
@@ -766,38 +1081,41 @@ export function ImageStudioPage() {
           s.clientId === id ? { ...s, track_id: assigned, attributes: { ...s.attributes, track_id: assigned } } : s,
         ),
       )
-      setSelectedId(id)
+      selectShape(id)
       return
     }
     if (tool === 'pose_edit') {
       const hit = nearestJoint(shapes, imgPt, 14 / scale)
       if (hit) {
         poseDrag.current = { id: hit.id, index: hit.index }
-        setSelectedId(hit.id)
+        selectShape(hit.id)
         return
       }
       const id = hitShapeId(e, shapes)
-      setSelectedId(id)
+      selectShape(id)
       return
     }
 
     if (drawMode === 'select') {
-      if (e.target === stage) setSelectedId(null)
-      return
-    }
-
-    if (drawMode === 'erase') {
-      const named = typeof e.target?.name === 'function' ? e.target.name() : ''
-      const id = shapes.some((s) => s.clientId === named) ? named : selectedId
-      if (id) {
-        pushHistory(shapes.filter((s) => s.clientId !== id))
-        setSelectedId(null)
-      }
+      if (e.target === stage) selectShape(null)
       return
     }
 
     if (drawMode === 'ai') {
       setShowAiPanel(true)
+      if (tool === 'ai_detect') {
+        runAi('ai_detect')
+        return
+      }
+      if (tool === 'ai_segment') {
+        const negative = e.evt.altKey || e.evt.button === 2
+        const next = negative
+          ? { ...segPrompts, negative: [...segPrompts.negative, imgPt] }
+          : { ...segPrompts, positive: [...segPrompts.positive, imgPt] }
+        setSegPrompts(next)
+        void runSegmentPrompts(next.positive, next.negative)
+        return
+      }
       runAi(tool === 'magic_wand' ? 'magic_wand' : tool, imgPt)
       return
     }
@@ -871,7 +1189,24 @@ export function ImageStudioPage() {
     }
 
     drawing.current = imgPt
-    setSelectedId(null)
+    if (tool === 'eraser') {
+      const hit = hitShapeId(e, shapes)
+      const target =
+        shapes.find(
+          (s) =>
+            s.clientId === (hit || selectedId) &&
+            (MASK_TYPES.has(s.tool_type) || s.geometry.rle || CLOSED_TYPES.has(s.tool_type)),
+        ) ||
+        [...shapes]
+          .reverse()
+          .find((s) => MASK_TYPES.has(s.tool_type) || s.geometry.rle || CLOSED_TYPES.has(s.tool_type))
+      if (!target) return
+      eraserTargetRef.current = target.clientId
+      selectShape(target.clientId)
+      setDraftPoints([imgPt])
+      return
+    }
+    selectShape(null)
     if (drawMode === 'freehand') setDraftPoints([imgPt])
     else setDraftRect({ x: imgPt.x, y: imgPt.y, w: 0, h: 0, r: 0 })
   }
@@ -882,6 +1217,19 @@ export function ImageStudioPage() {
     if (!pos) return
     const imgPt = toImage(pos)
     setCursor({ x: Math.round(imgPt.x), y: Math.round(imgPt.y) })
+
+    if (tool === 'pointer') {
+      const hit = shapeAtPoint(shapes, imgPt)
+      setInspectInfo(
+        hit
+          ? {
+              class_name: hit.class_name,
+              tool_type: hit.tool_type,
+              confidence: hit.attributes?.confidence as number | undefined,
+            }
+          : null,
+      )
+    }
 
     if (poseDrag.current) {
       const { id, index } = poseDrag.current
@@ -937,8 +1285,11 @@ export function ImageStudioPage() {
       pushHistory(cloneShapes(shapesRef.current))
       return
     }
-    if (drawMode === 'freehand' && draftPoints.length > 4) {
-      finishPoints(tool.includes('mask'), tool)
+    if (drawMode === 'freehand' && drawing.current) {
+      const minPts = tool === 'eraser' ? 2 : 4
+      if (draftPoints.length > minPts) {
+        finishPoints(tool.includes('mask'), tool)
+      }
       drawing.current = null
       return
     }
@@ -986,7 +1337,7 @@ export function ImageStudioPage() {
           },
         ])
         if (rectTool === 'rotated_bbox') {
-          setSelectedId(id)
+          selectShape(id)
           setTool('select')
         }
       }
@@ -1039,7 +1390,11 @@ export function ImageStudioPage() {
   }
 
   const cursorClass =
-    drawMode === 'pan' || spaceHeld.current
+    tool === 'pointer'
+      ? 'cursor-crosshair'
+      : tool === 'zoom'
+        ? 'cursor-zoom-in'
+        : drawMode === 'pan' || spaceHeld.current
       ? 'pan-mode'
       : drawMode === 'select'
         ? 'select-mode'
@@ -1263,13 +1618,14 @@ export function ImageStudioPage() {
               <AnnotationShapes
                 shapes={shapes}
                 selectedId={selectedId}
+                selectedIds={selectedIds}
                 classColors={classColors}
                 showLabels={showLabels}
                 viewScale={scale}
                 toolSelect={drawMode === 'select'}
-                onSelect={(id) => {
+                onSelect={(id, additive) => {
                   setTool('select')
-                  setSelectedId(id)
+                  selectShape(id, { additive })
                 }}
                 bindNode={(id, node) => {
                   if (id === selectedId) selectedNode.current = node
@@ -1364,9 +1720,13 @@ export function ImageStudioPage() {
             </button>
             <button
               onClick={() => {
-                if (selectedId) {
+                if (selectedIds.length > 1) {
+                  const drop = new Set(selectedIds)
+                  pushHistory(shapes.filter((s) => !drop.has(s.clientId)))
+                  selectShape(null)
+                } else if (selectedId) {
                   pushHistory(shapes.filter((s) => s.clientId !== selectedId))
-                  setSelectedId(null)
+                  selectShape(null)
                 }
               }}
               className="w-8 h-8 bg-white border border-border rounded-md flex items-center justify-center"
@@ -1378,6 +1738,9 @@ export function ImageStudioPage() {
 
           <div className="absolute bottom-3 right-3 z-10 bg-white/95 border border-border rounded-md px-2.5 py-1.5 text-2xs font-mono text-muted-foreground shadow-sm">
             Zoom {Math.round(scale * 100)}% · X {cursor.x} · Y {cursor.y}
+            {tool === 'pointer' && inspectInfo && (
+              <> · {inspectInfo.class_name} ({inspectInfo.tool_type})</>
+            )}
             {draftRect && drawMode !== 'circle' && (
               <> · {Math.round(draftRect.w)}×{Math.round(draftRect.h)} px</>
             )}
@@ -1400,13 +1763,96 @@ export function ImageStudioPage() {
                     Close
                   </button>
                 </div>
+                <div className="p-3 border-b border-border space-y-2">
+                  <p className="mira-section-label">Detect settings</p>
+                  {inferenceAvailable === false && (
+                    <p className="text-2xs text-amber-700 bg-amber-50 border border-amber-200 rounded px-2 py-1">
+                      YOLO not available on server. Run{' '}
+                      <code className="font-mono">pip install -r requirements-ml.txt</code> in backend/.venv
+                    </p>
+                  )}
+                  {inferenceAvailable && (
+                    <p className="text-2xs text-emerald-700">Pretrained YOLO models ready on server.</p>
+                  )}
+                  <label className="block text-2xs text-muted-foreground">
+                    Output shape
+                    <select
+                      className="mira-input h-8 text-xs mt-1 w-full"
+                      value={detectOutput}
+                      onChange={(e) => setDetectOutput(e.target.value as DetectOutput)}
+                    >
+                      <option value="bbox">Bounding boxes</option>
+                      <option value="polygon">Instance polygons (YOLO-seg)</option>
+                      <option value="mask">Mask polygons (YOLO-seg)</option>
+                    </select>
+                  </label>
+                  <label className="block text-2xs text-muted-foreground">
+                    Model
+                    <select
+                      className="mira-input h-8 text-xs mt-1 w-full"
+                      value={detectModel}
+                      onChange={(e) => setDetectModel(e.target.value)}
+                    >
+                      {(inferenceModels.length ? inferenceModels : DEFAULT_DETECT_MODELS).map((m) => (
+                        <option key={m.id} value={m.id}>
+                          {m.label}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                  <label className="block text-2xs text-muted-foreground">
+                    Confidence ({Math.round(detectConfidence * 100)}%)
+                    <input
+                      type="range"
+                      min={0.05}
+                      max={0.9}
+                      step={0.05}
+                      value={detectConfidence}
+                      onChange={(e) => setDetectConfidence(Number(e.target.value))}
+                      className="w-full mt-1"
+                    />
+                  </label>
+                  <label className="block text-2xs text-muted-foreground">
+                    Class filter (optional, comma-separated COCO names)
+                    <input
+                      className="mira-input h-8 text-xs mt-1 w-full"
+                      placeholder="person, car, dog"
+                      value={detectClasses}
+                      onChange={(e) => setDetectClasses(e.target.value)}
+                    />
+                  </label>
+                  <label className="block text-2xs text-muted-foreground">
+                    SAM model
+                    <select
+                      className="mira-input h-8 text-xs mt-1 w-full"
+                      value={segModel}
+                      onChange={(e) => setSegModel(e.target.value)}
+                    >
+                      <option value="mobile_sam">Mobile SAM (fast)</option>
+                      <option value="sam_b">SAM Base (accurate)</option>
+                    </select>
+                  </label>
+                  <label className="block text-2xs text-muted-foreground">
+                    Pose model
+                    <select
+                      className="mira-input h-8 text-xs mt-1 w-full"
+                      value={poseModel}
+                      onChange={(e) => setPoseModel(e.target.value)}
+                    >
+                      <option value="yolov8n-pose">YOLOv8 Nano Pose</option>
+                      <option value="yolov8s-pose">YOLOv8 Small Pose</option>
+                    </select>
+                  </label>
+                </div>
                 <div className="p-3 space-y-1 text-sm">
                   <button
                     className="w-full text-left px-3 py-2 rounded-md hover:bg-accent disabled:opacity-50"
                     disabled={aiBusy || !image}
                     onClick={() => {
                       setTool('ai_segment')
-                      setAiStatus('Click an object on the image.')
+                      setSegPrompts({ positive: [], negative: [] })
+                      segDraftId.current = null
+                      setAiStatus('Click to include. Alt+click or right-click to exclude. Enter to finish.')
                     }}
                   >
                     Segment Object (SAM-style)
@@ -1416,10 +1862,11 @@ export function ImageStudioPage() {
                     disabled={aiBusy || !image}
                     onClick={() => {
                       setTool('ai_detect')
+                      setAiStatus('Running YOLO detection with current settings…')
                       runAi('ai_detect')
                     }}
                   >
-                    Detect Objects
+                    Detect Objects (YOLO)
                   </button>
                   <button
                     className="w-full text-left px-3 py-2 rounded-md hover:bg-accent disabled:opacity-50"
@@ -1453,10 +1900,13 @@ export function ImageStudioPage() {
                   </button>
                 </div>
                 <p className="px-3 text-xs text-muted-foreground">
-                  {aiBusy ? 'Working…' : aiStatus || 'Click Detect to scan the image, or click the canvas for wand / segment / pose.'}
+                  {aiBusy
+                    ? 'Working…'
+                    : aiStatus ||
+                      'SAM-style: click to include, Alt+click to exclude. Magic Wand uses color similarity.'}
                 </p>
                 <p className="px-3 mt-2 text-2xs text-muted-foreground">
-                  Runs on this computer from the visible image. Results use the active class — edit labels after.
+                  Detection uses pretrained YOLO on the server (COCO classes). Segmentation uses on-device clicks.
                 </p>
               </div>
             ) : (
@@ -1678,11 +2128,38 @@ export function ImageStudioPage() {
                       {tool === 'rotated_bbox' && (
                         <p className="text-xs">Draw a box, then use Select and the rotate handle.</p>
                       )}
-                      {tool === 'eraser' && <p className="text-xs">Click an annotation to delete it.</p>}
-                      {(tool === 'magic_wand' || tool === 'ai_segment') && (
-                        <p className="text-xs">Click the object to generate a mask for <strong>{activeClass}</strong>.</p>
+                      {tool === 'mask_split' && (
+                        <p className="text-xs">Select a mask, then click two points to draw the split line.</p>
                       )}
-                      {tool === 'ai_detect' && <p className="text-xs">Click the image or press Detect in AI Assist to find objects.</p>}
+                      {tool === 'pointer' && (
+                        <p className="text-xs">Hover to inspect objects. Click to select. Ctrl+click to multi-select.</p>
+                      )}
+                      {tool === 'zoom' && (
+                        <p className="text-xs">Click to zoom in. Alt+click to zoom out. Scroll wheel also works.</p>
+                      )}
+                      {tool === 'semantic_seg' && (
+                        <p className="text-xs">Draw a region — merges with existing masks of the same class.</p>
+                      )}
+                      {tool === 'mask_merge' && (
+                        <p className="text-xs">Ctrl+click masks to multi-select, then click Merge or press the tool again.</p>
+                      )}
+                      {tool === 'eraser' && (
+                        <p className="text-xs">Select a mask and paint to erase pixels. Delete removes the whole object.</p>
+                      )}
+                      {tool === 'magic_wand' && (
+                        <p className="text-xs">Click a uniform region to generate a mask for <strong>{activeClass}</strong>.</p>
+                      )}
+                      {tool === 'ai_segment' && (
+                        <p className="text-xs">
+                          Click to include, Alt+click or right-click to exclude. Enter commits the mask for{' '}
+                          <strong>{activeClass}</strong>.
+                        </p>
+                      )}
+                      {tool === 'ai_detect' && (
+                        <p className="text-xs">
+                          Open AI Assist → set output (bbox/polygon), model, and confidence → Detect Objects (YOLO).
+                        </p>
+                      )}
                       {tool === 'ai_pose' && <p className="text-xs">Click the person to place a skeleton.</p>}
                       {['polygon', 'polyline', 'polygon_mask', 'semantic_seg', 'instance_seg', 'skeleton', 'keypoint', 'area'].includes(tool) && (
                         <p className="text-xs">Click vertices. Press S or Enter to complete.</p>
@@ -1735,13 +2212,13 @@ export function ImageStudioPage() {
                         items.map((s, i) => (
                           <button
                             key={s.clientId}
-                            onClick={() => {
+                            onClick={(evt) => {
                               setTool('select')
-                              setSelectedId(s.clientId)
+                              selectShape(s.clientId, { additive: evt.ctrlKey || evt.metaKey })
                             }}
                             className={cn(
                               'w-full text-left pl-3 pr-1 py-1 text-xs rounded flex items-center gap-2',
-                              selectedId === s.clientId ? 'bg-primary/10' : 'hover:bg-accent',
+                              selectedIds.includes(s.clientId) ? 'bg-primary/10' : 'hover:bg-accent',
                             )}
                           >
                             <span className="flex-1 truncate">

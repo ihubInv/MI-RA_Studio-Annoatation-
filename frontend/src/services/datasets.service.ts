@@ -163,7 +163,15 @@ export const datasetsService = {
     form.append('dataset_id', datasetId)
     form.append('job_id', jobId)
     const { data } = await api.post('/api/v1/uploads/zip/import', form, { timeout: 30 * 60_000 })
-    return data as { imported: number; skipped_duplicates: number; corrupted: number; item_count: number; folder_count: number }
+    return data as {
+      imported: number
+      skipped_duplicates: number
+      corrupted: number
+      rejected?: number
+      rejections?: { path: string; reason: string }[]
+      item_count: number
+      folder_count: number
+    }
   },
 
   exportDataset: async (payload: {
@@ -230,6 +238,7 @@ export const datasetsService = {
 
     return {
       uploaded: results.reduce((sum, r) => sum + (r?.uploaded ?? 0), 0),
+      rejected: results.flatMap((r) => (r as { rejected?: { path: string; reason: string }[] })?.rejected ?? []),
       items: results.flatMap((r) => r?.items ?? []),
     }
   },

@@ -1,9 +1,15 @@
 import { localDb } from './idb'
+import { isVideoPath } from '@/modules/video'
 
 const IMAGE_EXT = /\.(jpe?g|png|webp|bmp|gif|tif|tiff|jfif|ico)$/i
 
 export function isImagePath(name: string) {
   return IMAGE_EXT.test(name)
+}
+
+export function isMediaPath(name: string, modality: string = 'image') {
+  if (modality === 'video' || modality === 'multimodal') return isVideoPath(name)
+  return isImagePath(name)
 }
 
 export function supportsDirectoryPicker() {
@@ -52,7 +58,11 @@ export async function mapPool<T, R>(items: T[], limit: number, fn: (item: T, ind
   return results
 }
 
-export async function walkDirectory(root: FileSystemDirectoryHandle, prefix = ''): Promise<WalkedFile[]> {
+export async function walkDirectory(
+  root: FileSystemDirectoryHandle,
+  prefix = '',
+  modality: string = 'image',
+): Promise<WalkedFile[]> {
   const fileJobs: { name: string; handle: FileSystemFileHandle }[] = []
   const dirJobs: { name: string; handle: FileSystemDirectoryHandle }[] = []
   for await (const [name, handle] of root.entries()) {
@@ -60,7 +70,7 @@ export async function walkDirectory(root: FileSystemDirectoryHandle, prefix = ''
       if (name === '__MACOSX' || name.startsWith('.')) continue
       dirJobs.push({ name, handle: handle as FileSystemDirectoryHandle })
     } else {
-      if (!isImagePath(name) || name.startsWith('.') || name.startsWith('._')) continue
+      if (!isMediaPath(name, modality) || name.startsWith('.') || name.startsWith('._')) continue
       fileJobs.push({ name, handle: handle as FileSystemFileHandle })
     }
   }
@@ -76,7 +86,7 @@ export async function walkDirectory(root: FileSystemDirectoryHandle, prefix = ''
         type: file.type || 'application/octet-stream',
       } satisfies WalkedFile
     }),
-    mapPool(dirJobs, 10, ({ name, handle }) => walkDirectory(handle, prefix ? `${prefix}/${name}` : name)),
+    mapPool(dirJobs, 10, ({ name, handle }) => walkDirectory(handle, prefix ? `${prefix}/${name}` : name, modality)),
   ])
   return fileRows.concat(nested.flat())
 }
@@ -94,12 +104,12 @@ export async function fileFromDirectory(root: FileSystemDirectoryHandle, relativ
 const memoryFiles = new Map<string, Map<string, File>>()
 const memoryZips = new Map<string, File>()
 
-export function rememberSessionFiles(datasetId: string, files: File[]) {
+export function rememberSessionFiles(datasetId: string, files: File[], modality: string = 'image') {
   const map = new Map<string, File>()
   for (const file of files) {
     const rel = (file as File & { webkitRelativePath?: string }).webkitRelativePath || file.name
     const clean = rel.replace(/\\/g, '/').replace(/^\.\//, '')
-    if (!isImagePath(clean)) continue
+    if (!isMediaPath(clean, modality)) continue
     map.set(clean, file)
   }
   memoryFiles.set(datasetId, map)

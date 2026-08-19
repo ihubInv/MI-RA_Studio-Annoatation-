@@ -1,5 +1,5 @@
 import { BlobReader, BlobWriter, ZipReader } from '@zip.js/zip.js'
-import { isImagePath } from './fsAccess'
+import { isMediaPath } from './fsAccess'
 
 export interface ZipEntryMeta {
   relativePath: string
@@ -13,7 +13,7 @@ function normalizeZipPath(name: string) {
   return name.replace(/\\/g, '/').replace(/^\.\//, '').replace(/\/$/, '')
 }
 
-export async function listZipImages(file: File): Promise<ZipEntryMeta[]> {
+export async function listZipMedia(file: File, modality: string = 'image'): Promise<ZipEntryMeta[]> {
   const reader = new ZipReader(new BlobReader(file))
   const out: ZipEntryMeta[] = []
   for await (const entry of reader.getEntriesGenerator()) {
@@ -21,7 +21,7 @@ export async function listZipImages(file: File): Promise<ZipEntryMeta[]> {
     const rel = normalizeZipPath(entry.filename)
     const base = rel.split('/').pop() || rel
     if (!rel || rel.startsWith('__MACOSX') || base.startsWith('.') || base.startsWith('._')) continue
-    if (!isImagePath(rel)) continue
+    if (!isMediaPath(rel, modality)) continue
     out.push({
       relativePath: rel,
       name: base,
@@ -32,6 +32,11 @@ export async function listZipImages(file: File): Promise<ZipEntryMeta[]> {
   }
   await reader.close()
   return out
+}
+
+/** @deprecated use listZipMedia */
+export async function listZipImages(file: File) {
+  return listZipMedia(file, 'image')
 }
 
 export async function readZipEntry(file: File, relativePath: string): Promise<Blob> {

@@ -1,4 +1,5 @@
 import { Circle, Ellipse, Group, Image as KonvaImage, Line, Rect, Text } from 'react-konva'
+import type { KonvaEventObject } from 'konva/lib/Node'
 import { useMemo } from 'react'
 import { ANNOTATION, BRAND } from '@/lib/brand'
 import { toFlatPoints, type AnnShape } from './annTypes'
@@ -8,10 +9,11 @@ import { rleToCanvas, type RleMask } from './maskRle'
 interface Props {
   shapes: AnnShape[]
   selectedId: string | null
+  selectedIds?: string[]
   classColors: Record<string, string>
   showLabels: boolean
   viewScale: number
-  onSelect: (id: string) => void
+  onSelect: (id: string, additive?: boolean) => void
   bindNode: (id: string, node: unknown) => void
   onDragEnd: (id: string, x: number, y: number) => void
   onTranslatePoints: (id: string, dx: number, dy: number) => void
@@ -46,6 +48,7 @@ function MaskFill({ rle, color }: { rle: RleMask; color: string }) {
 export function AnnotationShapes({
   shapes,
   selectedId,
+  selectedIds = [],
   classColors,
   showLabels,
   viewScale,
@@ -63,7 +66,7 @@ export function AnnotationShapes({
       {shapes
         .filter((sh) => sh.visible !== false)
         .map((shape) => {
-          const selected = shape.clientId === selectedId
+          const selected = shape.clientId === selectedId || selectedIds.includes(shape.clientId)
           const color = strokeOf(shape, selected, classColors)
           const draggable = toolSelect && !shape.locked
           const g = shape.geometry
@@ -115,11 +118,15 @@ export function AnnotationShapes({
             strokeScaleEnabled: false as const,
             listening: false,
           }
+          const pick = (e: KonvaEventObject<Event>) => {
+            const evt = e.evt as MouseEvent
+            onSelect(shape.clientId, Boolean(evt.ctrlKey || evt.metaKey))
+          }
           const hit = {
             strokeScaleEnabled: false as const,
             listening: true,
-            onClick: () => onSelect(shape.clientId),
-            onTap: () => onSelect(shape.clientId),
+            onClick: pick,
+            onTap: pick,
           }
 
           if (type === 'classify' || type === 'multilabel' || type === 'tags') {
@@ -185,7 +192,7 @@ export function AnnotationShapes({
                   y={Number(g.y)}
                   radius={handle * 0.55}
                   fill={color}
-                  onClick={() => onSelect(shape.clientId)}
+                  onClick={pick}
                 />
                 {label}
               </Group>
@@ -236,7 +243,7 @@ export function AnnotationShapes({
                   e.target.x(0)
                   e.target.y(0)
                 }}
-                onClick={() => onSelect(shape.clientId)}
+                onClick={pick}
               >
                 {edges.map(([a, b], i) =>
                   pointList[a] && pointList[b] ? (

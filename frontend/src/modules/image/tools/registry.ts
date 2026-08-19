@@ -57,9 +57,9 @@ export const TOOL_CATEGORIES: { id: ToolCategory; label: string }[] = [
 
 export const TOOLS: ToolDef[] = [
   { id: 'select', label: 'Select', category: 'selection', shortcut: 'V', description: 'Select and transform objects', drawMode: 'select', implemented: true },
-  { id: 'pointer', label: 'Pointer', category: 'selection', shortcut: 'I', description: 'Inspect object under cursor', drawMode: 'select', implemented: true },
+  { id: 'pointer', label: 'Pointer', category: 'selection', shortcut: 'I', description: 'Inspect object under cursor (hover for details)', drawMode: 'select', implemented: true },
   { id: 'pan', label: 'Hand / Pan', category: 'navigation', shortcut: 'H', description: 'Click-drag to move the canvas', drawMode: 'pan', implemented: true },
-  { id: 'zoom', label: 'Zoom', category: 'navigation', shortcut: 'Z', description: 'Scroll or click to zoom toward cursor', drawMode: 'pan', implemented: true },
+  { id: 'zoom', label: 'Zoom', category: 'navigation', shortcut: 'Z', description: 'Click to zoom in (Alt+click zoom out)', drawMode: 'pan', implemented: true },
 
   { id: 'bbox', label: 'Bounding Box', category: 'geometry', shortcut: 'B', description: 'Draw an axis-aligned rectangle', drawMode: 'rect', implemented: true },
   { id: 'rotated_bbox', label: 'Rotated Box', category: 'geometry', shortcut: 'R', description: 'Draw a box, then rotate with Select', drawMode: 'rotated-rect', implemented: true },
@@ -73,15 +73,15 @@ export const TOOLS: ToolDef[] = [
   { id: 'arc', label: 'Arc', category: 'geometry', description: 'Three-point arc', drawMode: 'polyline', implemented: true },
 
   { id: 'brush', label: 'Brush Mask', category: 'segmentation', shortcut: 'M', description: 'Paint a segmentation mask', drawMode: 'freehand', implemented: true },
-  { id: 'eraser', label: 'Eraser', category: 'segmentation', shortcut: 'E', description: 'Click an object to delete it', drawMode: 'erase', implemented: true },
+  { id: 'eraser', label: 'Eraser', category: 'segmentation', shortcut: 'E', description: 'Paint to erase mask pixels', drawMode: 'freehand', implemented: true },
   { id: 'polygon_mask', label: 'Polygon Mask', category: 'segmentation', description: 'Closed polygon as instance mask', drawMode: 'polygon', implemented: true },
   { id: 'freehand_mask', label: 'Freehand Mask', category: 'segmentation', description: 'Freehand closed mask', drawMode: 'freehand', implemented: true },
-  { id: 'semantic_seg', label: 'Semantic Segmentation', category: 'segmentation', description: 'Class-level region mask', drawMode: 'polygon', implemented: true },
+  { id: 'semantic_seg', label: 'Semantic Segmentation', category: 'segmentation', description: 'Class-level region — merges with same-class masks', drawMode: 'polygon', implemented: true },
   { id: 'instance_seg', label: 'Instance Segmentation', category: 'segmentation', description: 'Instance mask for one object', drawMode: 'polygon', implemented: true },
   { id: 'magic_wand', label: 'Magic Wand', category: 'segmentation', shortcut: 'W', description: 'Click a region to auto-select similar pixels', drawMode: 'ai', implemented: true, ai: true },
   { id: 'mask_refine', label: 'Mask Refinement', category: 'segmentation', description: 'Refine an existing mask', drawMode: 'freehand', implemented: true },
-  { id: 'mask_merge', label: 'Mask Merge', category: 'segmentation', description: 'Merge selected masks', drawMode: 'select', implemented: true },
-  { id: 'mask_split', label: 'Mask Split', category: 'segmentation', description: 'Split a mask into instances', drawMode: 'select', implemented: true },
+  { id: 'mask_merge', label: 'Mask Merge', category: 'segmentation', description: 'Merge selected masks (Ctrl+click to multi-select)', drawMode: 'select', implemented: true },
+  { id: 'mask_split', label: 'Mask Split', category: 'segmentation', description: 'Click two points to draw a split line through a mask', drawMode: 'select', implemented: true },
 
   { id: 'keypoint', label: 'Keypoint', category: 'pose', shortcut: 'K', description: 'Place skeleton keypoints', drawMode: 'keypoints', implemented: true },
   { id: 'skeleton', label: 'Skeleton', category: 'pose', description: 'Place a COCO-17 pose at the click', drawMode: 'click-point', implemented: true },
@@ -105,9 +105,9 @@ export const TOOLS: ToolDef[] = [
   { id: 'cuboid', label: 'Cuboid', category: '3d', description: '2.5D cuboid on image', drawMode: 'rect', implemented: true },
   { id: 'bbox3d', label: '3D Box', category: '3d', description: '3D box (LiDAR workspace)', drawMode: 'rect', implemented: true },
 
-  { id: 'ai_segment', label: 'AI Segmentation', category: 'ai', description: 'Click an object to generate an instance mask', drawMode: 'ai', implemented: true, ai: true },
-  { id: 'ai_detect', label: 'AI Detect', category: 'ai', description: 'Find objects and draw bounding boxes', drawMode: 'ai', implemented: true, ai: true },
-  { id: 'ai_pose', label: 'AI Pose', category: 'ai', description: 'Place a skeleton pose at the click', drawMode: 'ai', implemented: true, ai: true },
+  { id: 'ai_segment', label: 'AI Segmentation', category: 'ai', description: 'SAM pretrained segmentation (server)', drawMode: 'ai', implemented: true, ai: true },
+  { id: 'ai_detect', label: 'AI Detect', category: 'ai', description: 'YOLO pretrained detection (server)', drawMode: 'ai', implemented: true, ai: true },
+  { id: 'ai_pose', label: 'AI Pose', category: 'ai', description: 'YOLO pose estimation (server)', drawMode: 'ai', implemented: true, ai: true },
 ]
 
 export const TOOL_BY_ID = Object.fromEntries(TOOLS.map((t) => [t.id, t])) as Record<string, ToolDef>

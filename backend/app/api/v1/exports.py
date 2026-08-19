@@ -24,7 +24,7 @@ class ExportRequest(BaseModel):
 async def list_exports():
     return {
         "resource": "exports",
-        "formats": ["json", "coco", "yolo", "voc", "labelme", "csv"],
+        "formats": ["json", "coco", "yolo", "voc", "labelme", "csv", "cvat"],
         "items": [],
         "total": 0,
     }
@@ -33,7 +33,7 @@ async def list_exports():
 @router.post("/")
 async def create_export(payload: ExportRequest, current_user: CurrentUser, db: DB):
     fmt = payload.format.lower()
-    if fmt not in {"json", "coco", "yolo", "voc", "labelme", "csv"}:
+    if fmt not in {"json", "coco", "yolo", "voc", "labelme", "csv", "cvat"}:
         raise HTTPException(status_code=400, detail="Unsupported export format")
     try:
         dataset, rows = await collect_export_rows(

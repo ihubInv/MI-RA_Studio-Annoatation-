@@ -62,6 +62,9 @@ htmlcov/
 coverage.xml
 *.lcov
 
+# ─── ML weights (downloaded at runtime) ──────────────────────────
+*.pt
+
 # ─── Misc ────────────────────────────────────────────────────────
 *.tmp
 *.bak

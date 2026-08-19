@@ -7,7 +7,7 @@ from app.api.v1 import (
     schemas, ontology, tasks, assignments,
     annotations, reviews, qa, models,
     predictions, embeddings, analytics,
-    exports, uploads, media, audit, notifications, admin,
+    exports, uploads, media, audit, notifications, admin, inference, video,
 )
 
 api_router = APIRouter()
@@ -27,11 +27,13 @@ api_router.include_router(annotations.router,    prefix="/annotations",       ta
 api_router.include_router(reviews.router,        prefix="/reviews",           tags=["Reviews"])
 api_router.include_router(qa.router,             prefix="/qa",                tags=["Quality Assurance"])
 api_router.include_router(models.router,         prefix="/models",            tags=["ML Models"])
+api_router.include_router(inference.router,      prefix="/inference",         tags=["Image · AI Inference"])
 api_router.include_router(predictions.router,    prefix="/predictions",       tags=["Predictions"])
 api_router.include_router(embeddings.router,     prefix="/embeddings",        tags=["Embeddings"])
 api_router.include_router(analytics.router,      prefix="/analytics",         tags=["Analytics"])
 api_router.include_router(exports.router,        prefix="/exports",           tags=["Image · Exports"])
 api_router.include_router(uploads.router,        prefix="/uploads",           tags=["Uploads"])
+api_router.include_router(video.router,          prefix="/video",             tags=["Video"])
 api_router.include_router(media.router,          prefix="/media",             tags=["Media"])
 api_router.include_router(audit.router,          prefix="/audit",             tags=["Audit Logs"])
 api_router.include_router(notifications.router,  prefix="/notifications",     tags=["Notifications"])
