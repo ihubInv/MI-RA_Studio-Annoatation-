@@ -1,0 +1,68 @@
+# MI-RA Studio
+# Universal Multimodal Annotation & Dataset Intelligence Platform
+# MI-RA Lab
+
+# ─── Python ──────────────────────────────────────────────────────
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+*.so
+*.egg
+*.egg-info/
+dist/
+build/
+.eggs/
+venv/
+.venv/
+env/
+*.env
+
+# ─── Node / Frontend ─────────────────────────────────────────────
+node_modules/
+frontend/dist/
+frontend/.next/
+*.local
+
+# ─── Secrets ─────────────────────────────────────────────────────
+.env
+.env.local
+.env.production
+frontend/.env.local
+nginx/ssl/
+*.pem
+*.key
+*.crt
+secrets/
+
+# ─── Docker volumes (local dev) ──────────────────────────────────
+docker/volumes/
+data/
+!data/.gitkeep
+data/postgres/
+data/redis/
+data/minio/
+
+# ─── IDE ─────────────────────────────────────────────────────────
+.vscode/
+.idea/
+*.swp
+*.swo
+.DS_Store
+Thumbs.db
+
+# ─── Logs ────────────────────────────────────────────────────────
+*.log
+logs/
+
+# ─── Testing ─────────────────────────────────────────────────────
+.pytest_cache/
+.coverage
+htmlcov/
+coverage.xml
+*.lcov
+
+# ─── Misc ────────────────────────────────────────────────────────
+*.tmp
+*.bak
+.cache/

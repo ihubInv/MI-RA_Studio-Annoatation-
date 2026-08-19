@@ -1,0 +1,16 @@
+FROM nvidia/cuda:12.3.0-runtime-ubuntu22.04
+
+RUN apt-get update && apt-get install -y \
+    python3.12 python3.12-venv python3-pip \
+    build-essential libpq-dev libgl1-mesa-glx \
+    libglib2.0-0 curl \
+    && rm -rf /var/lib/apt/lists/*
+
+WORKDIR /app
+
+COPY requirements.txt .
+RUN pip3 install --no-cache-dir -r requirements.txt
+
+COPY . .
+
+CMD ["celery", "-A", "app.workers.celery_app", "worker", "--loglevel=info", "--concurrency=2", "-Q", "ai,embeddings,lidar"]

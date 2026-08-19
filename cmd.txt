@@ -1,0 +1,24 @@
+Use two PowerShell windows.
+
+1. Backend (API — http://127.0.0.1:8000)
+
+cd E:\MultiAnno\mi-ra-studio
+powershell -ExecutionPolicy Bypass -File .\scripts\dev-backend.ps1
+If that hangs on Windows (uvicorn --reload), stop it and use this instead:
+
+cd E:\MultiAnno\mi-ra-studio\backend
+.\.venv\Scripts\python.exe -c "import asyncio,sys; asyncio.set_event_loop_policy(asyncio.WindowsSelectorEventLoopPolicy()); import uvicorn; uvicorn.run('app.main:app', host='127.0.0.1', port=8000, reload=False)"
+
+2. Frontend (UI — http://localhost:5173)
+
+cd E:\MultiAnno\mi-ra-studio
+powershell -ExecutionPolicy Bypass -File .\scripts\dev-frontend.ps1
+Then open http://localhost:5173
+
+Login: admin@mira-lab.ai / admin1234
+
+If port 8000 is already taken from an old process:
+
+
+netstat -ano | findstr :8000
+taskkill /PID <pid> /F

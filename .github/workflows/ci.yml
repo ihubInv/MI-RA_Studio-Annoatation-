@@ -1,0 +1,41 @@
+﻿name: CI
+
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+    branches: [main]
+
+jobs:
+  backend-test:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: pgvector/pgvector:pg16
+        env:
+          POSTGRES_USER: mira
+          POSTGRES_PASSWORD: testpass
+          POSTGRES_DB: mira_test
+        ports: ["5432:5432"]
+      redis:
+        image: redis:7-alpine
+        ports: ["6379:6379"]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: { python-version: "3.12" }
+      - run: pip install -r backend/requirements.txt
+      - run: pytest tests/ -v
+        env:
+          DATABASE_URL: postgresql+psycopg://mira:testpass@localhost:5432/mira_test
+          REDIS_URL: redis://localhost:6379/0
+          JWT_SECRET: test_secret
+          MINIO_ENDPOINT: localhost:9000
+
+  frontend-test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: "22" }
+      - run: cd frontend && npm install && npm run test

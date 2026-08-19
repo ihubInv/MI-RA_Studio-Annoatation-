@@ -1,0 +1,31 @@
+---
+description: Keep annotation modalities as separate freezeable modules. Do not mix other modalities into the completed image module.
+alwaysApply: true
+---
+
+# Modality modules
+
+MI-RA Studio is built **module by module**. Finish one modality, freeze it, then start the next.
+
+## Layout
+
+- Frontend live code: `frontend/src/modules/{image,video,audio,...}/`
+- Backend live code: `backend/app/modules/{image,video,audio,...}/`
+- Shared platform: `frontend/src/features`, `frontend/src/services`, `frontend/src/platform`, `backend/app/api`, `backend/app/models`
+- Do not put new work in `frontend/src/annotation/` — that folder is a pointer only
+
+## Image is frozen unless you are fixing an image bug
+
+Do **not** edit these for video, audio, LiDAR, or other modalities:
+
+- `frontend/src/modules/image/**`
+- `backend/app/modules/image/**`
+
+Import image UI only from `@/modules/image`. Image panels live in `modules/image/panels/`.
+
+## Adding the next module
+
+1. Put new studio/export code in `modules/video` (or the matching folder).
+2. Register a new route such as `/annotate/video/:itemId`.
+3. Keep `/annotate/:itemId` as the image studio.
+4. Do not add timeline, waveform, or point-cloud code to `ImageStudioPage`.
