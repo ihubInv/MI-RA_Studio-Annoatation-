@@ -102,7 +102,7 @@ export function MaskInteractionLayer({
   }
 
   const onPointerDown = (e: React.MouseEvent) => {
-    if (viewport.spaceHeld.current || e.button === 1) {
+    if (tool === 'pan' || viewport.spaceHeld.current || e.altKey || e.button === 1 || e.button === 2) {
       if (onPanStart(e)) return
     }
     const pt = toVideo(e)

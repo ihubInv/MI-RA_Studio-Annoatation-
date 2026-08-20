@@ -112,7 +112,7 @@ export function AnnotationInteractionLayer({
   }
 
   const cursor = () => {
-    if (isPanning || viewport.spaceHeld.current) return 'cursor-grabbing'
+    if (isPanning || viewport.spaceHeld.current || tool === 'pan') return 'cursor-grabbing'
     if (isDrawRectTool(tool) || isSkeletonTool(tool) || isPathTool(tool) || isPointTool(tool)) return 'cursor-crosshair'
     if (tool === 'select') return 'cursor-default'
     return 'cursor-grab'
@@ -194,7 +194,7 @@ export function AnnotationInteractionLayer({
 
   const onPointerDown = (e: React.MouseEvent) => {
     if (!enabled) return
-    if (tool === 'pan' || viewport.spaceHeld.current || e.button === 1) {
+    if (tool === 'pan' || viewport.spaceHeld.current || e.altKey || e.button === 1 || e.button === 2) {
       if (onPanStart(e)) return
     }
     const drawType = toolTypeForDraw(tool)

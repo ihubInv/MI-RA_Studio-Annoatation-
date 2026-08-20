@@ -396,7 +396,7 @@ export const VideoViewport = forwardRef<HTMLVideoElement, Props>(function VideoV
 
     (e: React.MouseEvent) => {
 
-      if (viewport.onPointerDown(e)) {
+      if (viewport.onPointerDown(e, tool === 'pan')) {
 
         setIsPanning(true)
 
@@ -408,7 +408,7 @@ export const VideoViewport = forwardRef<HTMLVideoElement, Props>(function VideoV
 
     },
 
-    [viewport],
+    [tool, viewport],
 
   )
 
@@ -827,7 +827,7 @@ export const VideoViewport = forwardRef<HTMLVideoElement, Props>(function VideoV
 
           onMouseDown={(e) => {
 
-            if (viewport.onPointerDown(e)) setIsPanning(true)
+            if (viewport.onPointerDown(e, true)) setIsPanning(true)
 
           }}
 
@@ -845,12 +845,13 @@ export const VideoViewport = forwardRef<HTMLVideoElement, Props>(function VideoV
 
 
 
-      <div className="absolute bottom-3 left-3 z-30 text-2xs font-mono tabular-nums bg-white/90 border border-border rounded px-2 py-1 shadow-sm pointer-events-none">
+      <div className="absolute bottom-3 left-14 z-30 text-2xs font-mono tabular-nums bg-white/90 border border-border rounded px-2 py-1 shadow-sm pointer-events-none">
 
         {Math.round(viewport.scale * 100)}% · frame {currentFrame + 1}
         {frameObjects.length + frameSkeletons.length + frameMasks.length
           ? ` · ${frameObjects.length + frameSkeletons.length + frameMasks.length} obj`
           : ''}
+        <span className="text-muted-foreground"> · Alt-drag pan</span>
 
       </div>
 

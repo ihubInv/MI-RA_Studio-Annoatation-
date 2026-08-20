@@ -6,7 +6,10 @@ interface Props {
 
 export function KeyboardShortcutsModal({ onClose }: Props) {
   const extras = [
-    ['Space', 'Play / pause'],
+    ['H or Hand tool', 'Pan canvas (click-drag)'],
+    ['Alt + drag', 'Pan without switching tools'],
+    ['Right-drag / middle-drag', 'Pan canvas'],
+    ['Space + drag', 'Pan (tap Space to play/pause)'],
     ['← / →', 'Step frame'],
     ['Shift+← / →', 'Jump 10 frames'],
     ['K', 'Keyframe'],

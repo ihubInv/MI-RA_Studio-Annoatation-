@@ -3,6 +3,7 @@
  * Maps owner-facing tool ids onto the existing video engine without changing classic mode.
  */
 import type { VideoShapeType, VideoTool } from '@/modules/video/canvas/types'
+import type { TemplateExportId } from './types'
 
 export const TEMPLATE_TOOL_IDS = [
   'bounding_box',
@@ -89,8 +90,6 @@ export const TEMPLATE_EXPORT_FORMATS = [
   'package',
   'annotated_video',
 ] as const
-
-export type TemplateExportId = (typeof TEMPLATE_EXPORT_FORMATS)[number]
 
 /** Engine draw tools produced by a catalog tool. Empty = temporal / not yet in the geometry strip. */
 export const TEMPLATE_TOOL_ENGINE_MAP: Record<TemplateToolId, VideoTool[]> = {

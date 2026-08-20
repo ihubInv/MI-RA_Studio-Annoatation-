@@ -28,7 +28,6 @@ from app.models.processing_job import ProcessingJob
 from app.models.comment import Comment
 from app.models.notification import Notification
 from app.models.audit_log import AuditLog
-from app.models.video_annotation_template import VideoAnnotationTemplate, VideoAnnotationTemplateVersion
 
 __all__ = [
     "TimestampMixin", "UUIDMixin",
@@ -43,5 +42,4 @@ __all__ = [
     "MLModel", "ModelVersion", "Prediction",
     "Embedding", "ExportJob", "ProcessingJob",
     "Comment", "Notification", "AuditLog",
-    "VideoAnnotationTemplate", "VideoAnnotationTemplateVersion",
 ]

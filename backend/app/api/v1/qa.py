@@ -1,4 +1,4 @@
-﻿"""Quality assurance API — validate annotations, gold samples, consensus."""
+"""Quality assurance API — validate annotations, gold samples, consensus."""
 from __future__ import annotations
 
 import uuid

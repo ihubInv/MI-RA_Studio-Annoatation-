@@ -115,6 +115,18 @@ export function VideoStudioPage() {
   const [dark, setDark] = useState(() => document.documentElement.classList.contains('dark'))
   const [showMultiCameraGrid] = useState(true)
   const [maskDraftStroke, setMaskDraftStroke] = useState<{ points: { x: number; y: number }[] } | null>(null)
+  const [canvasSize, setCanvasSize] = useState({ w: 0, h: 0 })
+  const [bottomH, setBottomH] = useState(() => {
+    try {
+      const n = Number(sessionStorage.getItem('mira.video.studioBottomH'))
+      if (Number.isFinite(n) && n >= 88) return n
+    } catch {
+      /* ignore */
+    }
+    return 260
+  })
+  const mainColRef = useRef<HTMLElement>(null)
+  const splitDrag = useRef<{ y: number; h: number } | null>(null)
   const [skeletonSchema, setSkeletonSchema] = useState<SkeletonTemplateSchema>(() =>
     loadSkeletonTemplateSchema('default'),
   )
@@ -164,6 +176,33 @@ export function VideoStudioPage() {
 
   useEffect(() => {
     initTheme()
+  }, [])
+
+  useEffect(() => {
+    try {
+      sessionStorage.setItem('mira.video.studioBottomH', String(bottomH))
+    } catch {
+      /* ignore */
+    }
+  }, [bottomH])
+
+  const onSplitPointerDown = useCallback((e: React.PointerEvent<HTMLDivElement>) => {
+    e.preventDefault()
+    e.currentTarget.setPointerCapture(e.pointerId)
+    splitDrag.current = { y: e.clientY, h: bottomH }
+  }, [bottomH])
+
+  const onSplitPointerMove = useCallback((e: React.PointerEvent<HTMLDivElement>) => {
+    if (!splitDrag.current) return
+    const mainH = mainColRef.current?.clientHeight ?? 640
+    const maxH = Math.max(88, Math.floor(mainH - 160))
+    const next = splitDrag.current.h - (e.clientY - splitDrag.current.y)
+    setBottomH(Math.min(maxH, Math.max(88, next)))
+  }, [])
+
+  const onSplitPointerUp = useCallback((e: React.PointerEvent<HTMLDivElement>) => {
+    splitDrag.current = null
+    if (e.currentTarget.hasPointerCapture(e.pointerId)) e.currentTarget.releasePointerCapture(e.pointerId)
   }, [])
 
   useEffect(() => {
@@ -1018,7 +1057,7 @@ export function VideoStudioPage() {
               <p className="text-2xs text-muted-foreground flex items-center gap-2 flex-wrap">
                 <StorageBadge mode={dataset?.storage_mode || (isLocal ? 'local' : 'server')} compact />
                 <span>
-                  {item.width}×{item.height}
+                  {(canvasSize.w || item.width) ?? '—'}×{(canvasSize.h || item.height) ?? '—'}
                   {item.fps ? ` · ${item.fps.toFixed(2)} fps` : ''}
                   {item.duration_seconds ? ` · ${formatDuration(item.duration_seconds)}` : ''}
                   {item.file_size_bytes ? ` · ${formatBytes(item.file_size_bytes)}` : ''}
@@ -1126,7 +1165,7 @@ export function VideoStudioPage() {
           </aside>
         )}
 
-        <main className="flex-1 min-w-0 flex flex-col min-h-0">
+        <main ref={mainColRef} className="flex-1 min-w-0 flex flex-col min-h-0">
           {!annotationFullscreen && isProcessing && !videoSrc && (
             <div className="shrink-0 mx-4 mt-3 px-3 py-2 text-xs bg-amber-50 border border-amber-200 rounded-md text-amber-900">
               Video is processing (metadata, thumbnails, proxies). Playback will start when ready…
@@ -1190,7 +1229,10 @@ export function VideoStudioPage() {
             }
             maskDraftStroke={maskDraftStroke}
             onMaskDraftStroke={(points) => setMaskDraftStroke(points ? { points } : null)}
-            onContentSize={annotations.setContentSize}
+            onContentSize={(w, h) => {
+              setCanvasSize({ w, h })
+              annotations.setContentSize(w, h)
+            }}
             onNextObjectId={annotations.nextObjectIdLabel}
             activeLabelName={activeLabel?.name ?? 'Object'}
             activeLabelColor={activeLabel?.color ?? '#0d559e'}
@@ -1223,7 +1265,23 @@ export function VideoStudioPage() {
           />
           {!annotationFullscreen && (
             <>
+              <div
+                role="separator"
+                aria-orientation="horizontal"
+                aria-label="Resize canvas"
+                title="Drag to resize canvas"
+                className="shrink-0 h-2 cursor-ns-resize bg-border hover:bg-primary/40 active:bg-primary/60 flex items-center justify-center"
+                onPointerDown={onSplitPointerDown}
+                onPointerMove={onSplitPointerMove}
+                onPointerUp={onSplitPointerUp}
+                onPointerCancel={onSplitPointerUp}
+                onDoubleClick={() => setBottomH(260)}
+              >
+                <span className="w-10 h-0.5 rounded-full bg-muted-foreground/40" />
+              </div>
+              <div className="shrink-0 flex flex-col min-h-0 overflow-hidden" style={{ height: bottomH }}>
               <VideoTransportBar player={player} disabled={controlsDisabled} />
+              <div className="flex-1 min-h-0 overflow-auto">
               <VideoTimeline
                 player={player}
                 disabled={controlsDisabled}
@@ -1364,6 +1422,8 @@ export function VideoStudioPage() {
                   if (t) player.seekToFrame(t.start_frame)
                 }}
               />
+              </div>
+              </div>
             </>
           )}
         </main>

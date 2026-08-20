@@ -88,11 +88,11 @@ export function useCanvasViewport(contentSize: Size, viewportSize: Size) {
     [scale, zoomAt],
   )
 
-  const shouldPan = (e: React.MouseEvent) =>
-    e.button === 0 || e.button === 1 || spaceHeld.current
+  const shouldPan = (e: React.MouseEvent, panTool = false) =>
+    panTool || e.altKey || spaceHeld.current || e.button === 1 || e.button === 2
 
-  const onPointerDown = useCallback((e: React.MouseEvent) => {
-    if (!shouldPan(e)) return false
+  const onPointerDown = useCallback((e: React.MouseEvent, panTool = false) => {
+    if (!shouldPan(e, panTool)) return false
     e.preventDefault()
     userModifiedRef.current = true
     panning.current = true

@@ -1,4 +1,4 @@
-﻿"""Analytics API — dataset / annotation / QA overview."""
+"""Analytics API — dataset / annotation / QA overview."""
 from __future__ import annotations
 
 from fastapi import APIRouter

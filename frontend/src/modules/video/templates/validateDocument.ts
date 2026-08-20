@@ -1,8 +1,10 @@
 import {
+  NAVIGATION_ENGINE_TOOLS,
   TEMPLATE_ATTRIBUTE_TYPES,
   TEMPLATE_EXPORT_FORMATS,
   TEMPLATE_LABEL_TYPES,
   TEMPLATE_TIMELINE_TRACKS,
+  TEMPLATE_TOOL_IDS,
   TEMPLATE_UI_PANELS,
   UNIMPLEMENTED_TEMPLATE_TOOLS,
   isTemplateToolId,
@@ -124,8 +126,7 @@ export function validateTemplateDocument(input: unknown): TemplateDocumentValida
   }
 
   const extraRoot = Object.keys(input).filter(
-    (key) =>
-      !['template', 'tools', 'labels', 'attributes', 'events', 'actions', 'relations', 'timeline', 'ai', 'validation', 'ui', 'export'].includes(key),
+    (key) => !['template', 'tools', 'labels', 'attributes', 'timeline', 'ai', 'validation', 'ui', 'export'].includes(key),
   )
   for (const key of extraRoot) err(errors, key, 'unknown', `Unknown top-level property “${key}”`)
 

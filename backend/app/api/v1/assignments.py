@@ -1,4 +1,4 @@
-﻿"""Assignments API — list and create task assignments."""
+"""Assignments API — list and create task assignments."""
 from __future__ import annotations
 
 import uuid
